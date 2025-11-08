@@ -1,0 +1,69 @@
+.transport-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    padding: 1rem 1.5rem;
+    background-color: #1e1e1e;
+    border-radius: 12px;
+}
+
+.playback-controls {
+    display: flex;
+    gap: 1rem;
+}
+
+.control-button {
+    background-color: #333;
+    border: none;
+    color: #fff;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease, color 0.2s ease;
+}
+
+.control-button:hover {
+    background-color: #444;
+}
+
+.control-button.clear-button:hover {
+    color: #e52e71;
+}
+
+
+.control-button:active {
+    transform: scale(0.95);
+}
+
+.control-button.active {
+    color: #ff8a00;
+}
+
+.tempo-control { /* Removed .synth-selector from this rule */
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.tempo-control label { /* Removed .synth-selector label from this rule */
+    font-weight: 400;
+}
+
+.tempo-control input[type="range"] {
+    width: 150px;
+}
+
+/* Removed specific .synth-selector styles here as the element is no longer in this component */
+
+@media (max-width: 768px) {
+    .transport-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

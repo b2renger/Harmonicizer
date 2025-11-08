@@ -1,0 +1,56 @@
+.composer {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    animation: fadeIn 1s ease-in-out;
+    flex-grow: 1;
+    min-height: 0; /* Necessary for flexbox overflow scrolling */
+}
+
+.composer-header {
+    text-align: center;
+    padding: 1rem 1.5rem;
+    background-color: #1e1e1e;
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+
+.composer-header h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin: 0;
+    background: linear-gradient(90deg, #ff8a00, #e52e71);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.composer-header p {
+    font-size: 1.1rem;
+    color: #a0a0a0;
+    margin-top: 0.25rem;
+}
+
+.chord-grid-wrapper {
+    flex-grow: 1;
+    overflow-y: auto;
+    min-height: 0; /* Necessary for flexbox overflow scrolling */
+}
+
+.controls-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    flex-shrink: 0;
+}
+
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

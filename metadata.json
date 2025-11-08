@@ -1,0 +1,5 @@
+{
+  "name": "Harmonicizer",
+  "description": "An interactive web application for composing chord progressions and exploring music theory concepts in a 3D space. Build, play, and visualize the relationships between chords and notes with an intuitive interface and powerful audio/visual tools.",
+  "requestFramePermissions": []
+}
