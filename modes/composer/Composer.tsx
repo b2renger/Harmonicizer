@@ -418,19 +418,41 @@ const Composer = () => {
             </header>
 
             <div className="main-controls-wrapper">
-                <div className="main-controls-left">
-                    <TransportControls 
-                        isPlaying={isPlaying}
-                        tempo={tempo}
-                        isLooping={isLooping}
-                        onPlayToggle={handlePlayToggle}
-                        onTempoChange={handleTempoChange}
-                        onLoopToggle={handleLoopToggle}
-                        onClearProgression={handleClearProgression}
-                        onUndo={handleUndo}
-                        onFeelLucky={handleFeelLucky}
-                        canUndo={progressionHistory.length > 0}
-                    />
+                <TransportControls 
+                    isPlaying={isPlaying}
+                    tempo={tempo}
+                    isLooping={isLooping}
+                    onPlayToggle={handlePlayToggle}
+                    onTempoChange={handleTempoChange}
+                    onLoopToggle={handleLoopToggle}
+                />
+                <div className="secondary-controls">
+                    <button 
+                        className="control-button" 
+                        aria-label="Undo last action" 
+                        onClick={handleUndo} 
+                        disabled={progressionHistory.length === 0}
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
+                        </svg>
+                    </button>
+                    <button className="control-button clear-button" aria-label="Clear Progression" onClick={handleClearProgression}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                    </button>
+                    <button 
+                        className="control-button lucky-button" 
+                        aria-label="I feel lucky" 
+                        onClick={handleFeelLucky}
+                        title="Generate Random Progression"
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19,3H5C3.89,3 3,3.89 3,5V19C3,20.11 3.9,21 5,21H19C20.11,21 21,20.11 21,19V5C21,3.89 20.1,3 19,3M6,8.5C6,7.67 6.67,7 7.5,7S9,7.67 9,8.5C9,9.33 8.33,10 7.5,10S6,9.33 6,8.5M15,15.5C15,14.67 15.67,14 16.5,14S18,14.67 18,15.5C18,16.33 17.33,17 16.5,17S15,16.33 15,15.5M10.5,12C10.5,11.17 11.17,10.5 12,10.5S13.5,11.17 13.5,12C13.5,12.83 12.83,13.5 12,13.5S10.5,12.83 10.5,12M15,8.5C15,7.67 15.67,7 16.5,7S18,7.67 18,8.5C18,9.33 17.33,10 16.5,10S15,9.33 15,8.5M6,15.5C6,14.67 6.67,14 7.5,14S9,14.67 9,15.5C9,16.33 8.33,17 7.5,17S6,16.33 6,15.5Z"/>
+                        </svg>
+                    </button>
+
                     <KeySignature
                         currentKey={musicalKey}
                         currentMode={musicalMode}
@@ -439,6 +461,7 @@ const Composer = () => {
                         rootNotes={rootNotes}
                         modes={modes}
                     />
+
                     <button 
                         className={`control-button ${isNoteVisualizerVisible ? 'active' : ''}`}
                         onClick={() => setIsNoteVisualizerVisible(prev => !prev)}

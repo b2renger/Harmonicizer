@@ -1,17 +1,9 @@
 .transport-controls {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     flex-wrap: wrap;
     gap: 1.5rem;
     flex-grow: 1; /* Allow the component to grow and fill space */
-}
-
-.transport-controls-left {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1.5rem;
 }
 
 .playback-controls {
@@ -79,8 +71,6 @@
     .transport-controls {
         flex-direction: column;
         align-items: stretch;
-    }
-    .transport-controls-left {
-        justify-content: space-between;
+        gap: 1rem;
     }
 }
