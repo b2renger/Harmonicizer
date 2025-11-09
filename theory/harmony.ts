@@ -1,5 +1,5 @@
 import { Mode, Chord, Scale, Interval, Note } from 'tonal';
-import { getAbbreviatedChordName } from './chords';
+import { getAbbreviatedChordName, getChordNotesWithOctaves as getChordNotesWithOctavesUtil } from './chords';
 
 /**
  * A robust wrapper around Tonal.Chord.get to handle inconsistencies
@@ -208,3 +208,6 @@ export const generateRandomProgression = (key: string, mode: string): string[] =
     
     return chords;
 };
+
+// Re-export for use in analysis module
+export { getChordNotesWithOctavesUtil as getChordNotesWithOctaves };

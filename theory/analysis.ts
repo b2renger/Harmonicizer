@@ -1,6 +1,6 @@
 import { Chord, Scale, Note, Mode } from 'tonal';
 import type { Chord as ChordType } from '../modes/composer/Composer';
-import { getRomanNumeralForChord, COMMON_PATTERNS, getChordFromRomanNumeral, getDiatonicChords, getBorrowedChords } from './harmony';
+import { getRomanNumeralForChord, COMMON_PATTERNS, getChordFromRomanNumeral, getDiatonicChords, getBorrowedChords, getChordNotesWithOctaves } from './harmony';
 
 /**
  * A robust method for checking common notes between chords, accounting for octaves.
@@ -188,6 +188,41 @@ export const getPatternSuggestionsForChord = (contextChordName: string, musicalK
     }
 
     return suggestions;
+};
+
+/**
+ * Analyzes a chord progression to find the minimum and maximum MIDI notes.
+ * @param progression An array of Chord objects.
+ * @returns An object with minMidi and maxMidi, or null if progression is empty.
+ */
+export const getProgressionNoteRange = (progression: ChordType[]): { minMidi: number; maxMidi: number } | null => {
+    if (progression.length === 0) {
+        return null;
+    }
+
+    let minMidi = Infinity;
+    let maxMidi = -Infinity;
+
+    for (const chord of progression) {
+        if (chord.name === 'Rest') continue;
+
+        // We need to import or have access to getChordNotesWithOctaves
+        const notes = getChordNotesWithOctaves(chord.name, chord.octave);
+        for (const noteName of notes) {
+            const midi = Note.midi(noteName);
+            if (midi !== null) {
+                if (midi < minMidi) minMidi = midi;
+                if (midi > maxMidi) maxMidi = midi;
+            }
+        }
+    }
+
+    if (minMidi === Infinity || maxMidi === -Infinity) {
+        // This case handles progressions with only invalid chords
+        return null;
+    }
+
+    return { minMidi, maxMidi };
 };
 
 /**

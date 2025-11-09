@@ -7,7 +7,7 @@ import KeySignature from '../../components/KeySignature/KeySignature';
 import ProgressionAnalyzer from '../../components/ProgressionAnalyzer/ProgressionAnalyzer';
 import CollapsibleSection from '../../components/CollapsibleSection/CollapsibleSection';
 import { Player, SynthType, EnvelopeSettings } from '../../audio/player';
-import { analyzeProgression, getSuggestionsForChord, getPatternSuggestionsForChord } from '../../theory/analysis';
+import { analyzeProgression, getSuggestionsForChord, getPatternSuggestionsForChord, getProgressionNoteRange } from '../../theory/analysis';
 import { generateRandomProgression, getDiatonicChords } from '../../theory/harmony';
 import './Composer.css';
 import type * as Tone from 'tone';
@@ -75,6 +75,10 @@ const Composer = () => {
         return progression[selectedIndex];
 
     }, [selectedChordId, progression]);
+
+    const noteRange = useMemo(() => {
+        return getProgressionNoteRange(progression);
+    }, [progression]);
 
     const exhaustiveSuggestions = useMemo(() => {
         const contextChord = selectionContext 
@@ -381,15 +385,26 @@ const Composer = () => {
         handleCloseModal(); // Close the modal after adding the pattern
     }, [editingChord, handleCloseModal, setProgressionWithHistory]);
 
-    const handleAddSuggestedChords = useCallback((chordNames: string[]) => {
+    const handleAddChords = useCallback((chordNames: string[]) => {
         const newChords: Chord[] = chordNames.map(name => ({
             id: crypto.randomUUID(),
             name,
             duration: 4, // Default duration
             octave: 4,   // Default octave
         }));
-        setProgressionWithHistory(currentProgression => [...currentProgression, ...newChords]);
-    }, [setProgressionWithHistory]);
+        setProgressionWithHistory(currentProgression => {
+            if (selectedChordId) {
+                const selectedIndex = currentProgression.findIndex(c => c.id === selectedChordId);
+                if (selectedIndex > -1) {
+                    const newProgression = [...currentProgression];
+                    newProgression.splice(selectedIndex + 1, 0, ...newChords);
+                    return newProgression;
+                }
+            }
+            // If no chord is selected or the selected chord is not found, append to the end
+            return [...currentProgression, ...newChords];
+        });
+    }, [selectedChordId, setProgressionWithHistory]);
 
     const suggestionContextChord = useMemo(() => 
         selectionContext || (progression.length > 0 ? progression[progression.length - 1] : null),
@@ -447,6 +462,7 @@ const Composer = () => {
                     onRemoveChord={handleRemoveChord}
                     onReorderProgression={handleReorderProgression}
                     isNoteVisualizerVisible={isNoteVisualizerVisible}
+                    noteRange={noteRange}
                 />
             </div>
             
@@ -454,7 +470,7 @@ const Composer = () => {
                 <CollapsibleSection title="Harmonic Analysis" defaultOpen={true}>
                     <ProgressionAnalyzer 
                         analysis={analysisResults} 
-                        onAddSuggestedChords={handleAddSuggestedChords}
+                        onAddChords={handleAddChords}
                         suggestions={exhaustiveSuggestions}
                         suggestionContextChord={suggestionContextChord}
                     />

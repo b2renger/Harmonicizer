@@ -21,7 +21,7 @@ interface AnalysisResults {
 
 interface ProgressionAnalyzerProps {
     analysis: AnalysisResults;
-    onAddSuggestedChords: (chords: string[]) => void;
+    onAddChords: (chords: string[]) => void;
     suggestions: {
         categorized: ReturnType<typeof getSuggestionsForChord>;
         patterns: ReturnType<typeof getPatternSuggestionsForChord>;
@@ -81,7 +81,7 @@ const RichnessScore: React.FC<{ score: number }> = ({ score }) => {
 
 const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({ 
     analysis, 
-    onAddSuggestedChords,
+    onAddChords,
     suggestions,
     suggestionContextChord
 }) => {
@@ -108,7 +108,15 @@ const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({
                         <h4 className="info-subheader">Diatonic Chords</h4>
                         <div className="chord-info-grid">
                             {hints.diatonicChords.map(({ name, roman }) => (
-                                <div key={name} className="chord-info-chip">
+                                <div 
+                                    key={name} 
+                                    className="chord-info-chip interactive"
+                                    onClick={() => onAddChords([name])}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && onAddChords([name])}
+                                    aria-label={`Add ${getDisplayChordName(name)} chord`}
+                                >
                                     <span className="chord-info-name">{getDisplayChordName(name)}</span>
                                     <span className="chord-info-roman">{roman}</span>
                                 </div>
@@ -120,7 +128,15 @@ const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({
                                 <h4 className="info-subheader">Borrowed Chords</h4>
                                 <div className="chord-info-grid">
                                     {hints.borrowedChords.map(({ name, roman }) => (
-                                        <div key={name} className="chord-info-chip">
+                                        <div 
+                                            key={name} 
+                                            className="chord-info-chip interactive"
+                                            onClick={() => onAddChords([name])}
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && onAddChords([name])}
+                                            aria-label={`Add ${getDisplayChordName(name)} chord`}
+                                        >
                                             <span className="chord-info-name">{getDisplayChordName(name)}</span>
                                             <span className="chord-info-roman">{roman}</span>
                                         </div>
@@ -157,10 +173,10 @@ const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({
                          <p className="placeholder-text">Add a chord or select one to see suggestions.</p>
                     ) : (
                         <div className="suggestions-container">
-                            <SuggestionCategory title="Coherent" chords={categorized.coherent} onAdd={(name) => onAddSuggestedChords([name])} />
-                            <SuggestionCategory title="Jazzy" chords={categorized.jazzy} onAdd={(name) => onAddSuggestedChords([name])} />
-                            <SuggestionCategory title="Classical" chords={categorized.classical} onAdd={(name) => onAddSuggestedChords([name])} />
-                            <SuggestionCategory title="Inventive" chords={categorized.inventive} onAdd={(name) => onAddSuggestedChords([name])} />
+                            <SuggestionCategory title="Coherent" chords={categorized.coherent} onAdd={(name) => onAddChords([name])} />
+                            <SuggestionCategory title="Jazzy" chords={categorized.jazzy} onAdd={(name) => onAddChords([name])} />
+                            <SuggestionCategory title="Classical" chords={categorized.classical} onAdd={(name) => onAddChords([name])} />
+                            <SuggestionCategory title="Inventive" chords={categorized.inventive} onAdd={(name) => onAddChords([name])} />
                             
                             {patterns.length > 0 && (
                                 <div className="suggestion-category">
@@ -176,7 +192,7 @@ const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({
                                                 </div>
                                                 <button 
                                                     className="add-suggestion-button" 
-                                                    onClick={() => onAddSuggestedChords(suggestion.chordsToAdd)}
+                                                    onClick={() => onAddChords(suggestion.chordsToAdd)}
                                                     aria-label={`Add suggested chords for ${suggestion.name}`}
                                                 >
                                                     Add

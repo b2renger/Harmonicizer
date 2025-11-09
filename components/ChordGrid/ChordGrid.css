@@ -25,3 +25,28 @@
 .chord-grid-item.is-dragging-wrapper {
     opacity: 0.4;
 }
+
+
+@media (max-width: 768px) and (orientation: portrait) {
+    .chord-grid {
+        /* On portrait, a single column is better for the combined card/visualizer width */
+        grid-template-columns: 1fr; 
+    }
+    .chord-grid-item {
+        flex-direction: row;
+        gap: 0.5rem;
+        align-items: stretch; /* Make card and visualizer the same height */
+    }
+
+    /* Target the direct children of the grid item */
+    .chord-grid-item > .chord-card {
+        flex-grow: 1;
+        flex-shrink: 1;
+        min-width: 0; /* Allow card to shrink below its default content size if needed */
+    }
+
+    .chord-grid-item > .vertical-note-visualizer {
+        flex-shrink: 0;
+        flex-basis: 60px; /* Give the visualizer a fixed width */
+    }
+}

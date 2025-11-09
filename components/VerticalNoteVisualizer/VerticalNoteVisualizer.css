@@ -1,6 +1,6 @@
 .vertical-note-visualizer {
     display: flex;
-    flex-direction: column-reverse; /* Puts C at the bottom to represent ascending pitch */
+    flex-direction: column; /* Render top-to-bottom */
     width: 100%;
     background-color: #111;
     border-radius: 6px;
@@ -15,12 +15,19 @@
     flex-grow: 1;
     text-align: center;
     font-size: 0.75rem;
-    color: #555;
+    color: #888; /* Default color for all notes in the range */
     font-weight: bold;
     padding: 2px 0;
     border-radius: 3px;
     transition: all 0.2s ease;
     position: relative;
+    background-color: #222; /* Default background for natural notes */
+}
+
+/* Style for accidental notes (black keys) */
+.note-row.is-accidental {
+    background-color: #1a1a1a;
+    color: #777;
 }
 
 .note-row.active {
@@ -52,10 +59,57 @@
 @keyframes growVertical {
     from {
         opacity: 0;
-        max-height: 0;
+        transform: scaleY(0);
+        transform-origin: top;
     }
     to {
         opacity: 1;
-        max-height: 200px; /* A reasonable max-height for the animation */
+        transform: scaleY(1);
+        transform-origin: top;
+    }
+}
+
+@keyframes growHorizontal {
+    from {
+        opacity: 0;
+        transform: scaleX(0);
+        transform-origin: left;
+    }
+    to {
+        opacity: 1;
+        transform: scaleX(1);
+        transform-origin: left;
+    }
+}
+
+@media (max-width: 768px) and (orientation: portrait) {
+    .vertical-note-visualizer {
+        /* Switch to horizontal layout */
+        flex-direction: row-reverse; /* Display low-to-high LTR */
+        margin-top: 0;
+        height: 100%;
+        width: auto;
+        padding: 0.25rem;
+        animation-name: growHorizontal;
+        gap: 2px;
+    }
+
+    .note-row {
+        flex-grow: 1;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .note-row .note-name {
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+    }
+
+    .note-row.is-root::before {
+        left: 50%;
+        top: 4px;
+        transform: translateX(-50%);
     }
 }

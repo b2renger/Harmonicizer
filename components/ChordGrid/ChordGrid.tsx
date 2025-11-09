@@ -13,6 +13,7 @@ interface ChordGridProps {
     onRemoveChord: (id: string) => void;
     onReorderProgression: (newProgression: Chord[]) => void;
     isNoteVisualizerVisible: boolean;
+    noteRange: { minMidi: number; maxMidi: number } | null;
 }
 
 const ChordGrid: React.FC<ChordGridProps> = ({ 
@@ -24,6 +25,7 @@ const ChordGrid: React.FC<ChordGridProps> = ({
     onRemoveChord, 
     onReorderProgression,
     isNoteVisualizerVisible,
+    noteRange,
 }) => {
     const [draggedChordId, setDraggedChordId] = useState<string | null>(null);
     const [dragOverChordId, setDragOverChordId] = useState<string | null>(null);
@@ -111,8 +113,12 @@ const ChordGrid: React.FC<ChordGridProps> = ({
                         onDragStart={(e) => handleDragStart(e, chord.id)}
                         onDragEnd={handleDragEnd}
                     />
-                    {isNoteVisualizerVisible && chord.name !== 'Rest' && (
-                        <VerticalNoteVisualizer chordName={chord.name} />
+                    {isNoteVisualizerVisible && chord.name !== 'Rest' && noteRange && (
+                        <VerticalNoteVisualizer 
+                            chordName={chord.name}
+                            chordOctave={chord.octave}
+                            noteRange={noteRange}
+                        />
                     )}
                 </div>
             ))}

@@ -135,6 +135,20 @@
     line-height: 1.2;
 }
 
+.chord-info-chip.interactive {
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.chord-info-chip.interactive:hover,
+.chord-info-chip.interactive:focus {
+    background-color: #333;
+    border-color: #4facfe;
+    transform: translateY(-2px);
+    outline: none;
+}
+
+
 .chord-info-name {
     font-weight: 700;
     color: #fff;
