@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import TransportControls from '../../components/TransportControls/TransportControls.js';
-import ChordGrid from '../../components/ChordGrid/ChordGrid.js';
-import ChordSelector from '../../components/ChordSelector/ChordSelector.js';
-import GraphicalEnvelopeEditor from '../../components/GraphicalEnvelopeEditor/GraphicalEnvelopeEditor.js';
-import KeySignature from '../../components/KeySignature/KeySignature.js';
-import ProgressionAnalyzer from '../../components/ProgressionAnalyzer/ProgressionAnalyzer.js';
-import CollapsibleSection from '../../components/CollapsibleSection/CollapsibleSection.js';
+import TransportControls from '../../components/TransportControls/TransportControls.tsx';
+import ChordGrid from '../../components/ChordGrid/ChordGrid.tsx';
+import ChordSelector from '../../components/ChordSelector/ChordSelector.tsx';
+import GraphicalEnvelopeEditor from '../../components/GraphicalEnvelopeEditor/GraphicalEnvelopeEditor.tsx';
+import KeySignature from '../../components/KeySignature/KeySignature.tsx';
+import ProgressionAnalyzer from '../../components/ProgressionAnalyzer/ProgressionAnalyzer.tsx';
+import CollapsibleSection from '../../components/CollapsibleSection/CollapsibleSection.tsx';
 import { Player } from '../../audio/player.js';
 import { analyzeProgression, getSuggestionsForChord, getHarmonicTheoryForChord } from '../../theory/analysis.js';
 import { generateRandomProgression, getDiatonicChords } from '../../theory/harmony.js';
@@ -500,7 +500,6 @@ const Composer = () => {
             </div>
             
             <div className="analysis-effects-container">
-                {/* FIX: Add missing required 'defaultOpen' prop */}
                 <CollapsibleSection title="Harmonic Analysis" defaultOpen={true}>
                     <ProgressionAnalyzer 
                         analysis={analysisResults} 
@@ -510,7 +509,6 @@ const Composer = () => {
                     />
                 </CollapsibleSection>
 
-                {/* FIX: Add missing required 'defaultOpen' prop */}
                 <CollapsibleSection title="Synthesizer & Effects" defaultOpen={true}>
                     <GraphicalEnvelopeEditor 
                         masterGain={masterGain}

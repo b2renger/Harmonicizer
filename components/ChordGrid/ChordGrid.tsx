@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import ChordCard from '../ChordCard/ChordCard.js';
-import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisualizer.js';
+import ChordCard from '../ChordCard/ChordCard.tsx';
+import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisualizer.tsx';
 import './ChordGrid.css';
 
 const ChordGrid = ({ 
@@ -106,7 +106,6 @@ const ChordGrid = ({
                         // Drag and Drop props
                         onDragStart={(e) => handleDragStart(e, chord.id)}
                         onDragEnd={handleDragEnd}
-                        // FIX: Pass missing required drag-and-drop props
                         onDragOver={(e) => handleDragOver(e, chord.id)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, chord.id)}

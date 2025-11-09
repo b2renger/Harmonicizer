@@ -1,6 +1,6 @@
 import React from 'react';
 import './App.css';
-import Composer from './modes/composer/Composer.js';
+import Composer from './modes/composer/Composer.tsx';
 
 function App() {
   return (

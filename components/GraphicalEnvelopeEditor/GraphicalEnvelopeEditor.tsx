@@ -1,7 +1,7 @@
 import React from 'react';
 import './GraphicalEnvelopeEditor.css';
-import Knob from '../Knob/Knob.js';
-import ADSRGraph from '../ADSRGraph/ADSRGraph.js';
+import Knob from '../Knob/Knob.tsx';
+import ADSRGraph from '../ADSRGraph/ADSRGraph.tsx';
 
 const GraphicalEnvelopeEditor = (props) => {
     

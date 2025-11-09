@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { rootNotes, chordTypes, getChordNotesWithOctaves, detectChordFromNotes, getAbbreviatedNameFromNotes } from '../../theory/chords.js';
 import { getDiatonicChords, getBorrowedChords, getRomanNumeralForNote } from '../../theory/harmony.js';
 import { Chord as TonalChord, Note } from 'tonal';
-import ChordTransitionVisualizer from '../ChordTransitionVisualizer/ChordTransitionVisualizer.js';
-import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisualizer.js';
-import CollapsibleSection from '../CollapsibleSection/CollapsibleSection.js';
+import ChordTransitionVisualizer from '../ChordTransitionVisualizer/ChordTransitionVisualizer.tsx';
+import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisualizer.tsx';
+import CollapsibleSection from '../CollapsibleSection/CollapsibleSection.tsx';
 import './ChordSelector.css';
 
 const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode, contextualChord, nextChord, player }) => {
@@ -183,8 +183,7 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
                                 </div>
                             </div>
 
-                            {/* FIX: Add missing required 'defaultOpen' prop */}
-                            <CollapsibleSection title="Customization" defaultOpen>
+                            <CollapsibleSection title="Customization" defaultOpen={true}>
                                 <div className={`customization-controls ${isRest ? 'disabled' : ''}`}>
                                     <div className="chromatic-controls">
                                         <div className="modal-subsection">
@@ -253,7 +252,7 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
                     </div>
 
                     {showVisualization && (
-                         <CollapsibleSection title="Note Visualization">
+                         <CollapsibleSection title="Note Visualization" defaultOpen={true}>
                             <div className="chord-visualization-container">
                                 {prevChordIsValid && (
                                     <ChordTransitionVisualizer
@@ -285,7 +284,6 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
                                         title={`To ${getAbbreviatedNameFromNotes(nextChord.notes)}`}
                                         musicalKey={musicalKey}
                                         musicalMode={musicalMode}
-                                        // FIX: Pass a no-op function for the required 'onToChordNotesChange' prop on this non-interactive instance
                                         onToChordNotesChange={() => {}}
                                     />
                                 )}

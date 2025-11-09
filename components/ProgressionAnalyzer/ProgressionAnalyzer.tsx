@@ -1,7 +1,7 @@
 import React from 'react';
 import './ProgressionAnalyzer.css';
 import { getDisplayChordName, getAbbreviatedNameFromNotes } from '../../theory/chords.js';
-import CollapsibleSection from '../CollapsibleSection/CollapsibleSection.js';
+import CollapsibleSection from '../CollapsibleSection/CollapsibleSection.tsx';
 
 const ScoreDial = ({ score }) => {
     const radius = 50;
@@ -71,10 +71,8 @@ const ProgressionAnalyzer = ({
                                     role="button"
                                     tabIndex={0}
                                     onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && onAddChords([name])}
-                                    // FIX: Provide undefined for optional 'octave' parameter to fix arity error
                                     aria-label={`Add ${getDisplayChordName(name, undefined)} chord`}
                                 >
-                                    {/* FIX: Provide undefined for optional 'octave' parameter to fix arity error */}
                                     <span className="chord-info-name">{getDisplayChordName(name, undefined)}</span>
                                     <span className="chord-info-roman">{roman}</span>
                                 </div>
@@ -83,7 +81,6 @@ const ProgressionAnalyzer = ({
                     </CollapsibleSection>
 
                     {hints.borrowedChords.length > 0 && (
-                        // FIX: Add missing required 'defaultOpen' prop
                         <CollapsibleSection title="Borrowed Chords" defaultOpen={false}>
                             <div className="chord-info-grid">
                                 {hints.borrowedChords.map(({ name, roman }) => (
@@ -94,10 +91,8 @@ const ProgressionAnalyzer = ({
                                         role="button"
                                         tabIndex={0}
                                         onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && onAddChords([name])}
-                                        // FIX: Provide undefined for optional 'octave' parameter to fix arity error
                                         aria-label={`Add ${getDisplayChordName(name, undefined)} chord`}
                                     >
-                                        {/* FIX: Provide undefined for optional 'octave' parameter to fix arity error */}
                                         <span className="chord-info-name">{getDisplayChordName(name, undefined)}</span>
                                         <span className="chord-info-roman">{roman}</span>
                                     </div>
@@ -126,7 +121,6 @@ const ProgressionAnalyzer = ({
                                                             className="add-movement-button"
                                                             onClick={() => onAddChords(movement.chordsToAdd)}
                                                         >
-                                                            {/* FIX: Provide undefined for optional 'octave' parameter to fix arity error */}
                                                             Add: {movement.chordsToAdd.map(name => getDisplayChordName(name, undefined)).join(', ')}
                                                         </button>
                                                     </div>
