@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import './CollapsibleSection.css';
 
-interface CollapsibleSectionProps {
-    title: string;
-    children: React.ReactNode;
-    defaultOpen?: boolean;
-}
-
-const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, children, defaultOpen }) => {
+const CollapsibleSection = ({ title, children, defaultOpen }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen ?? false);
 
     const toggleOpen = () => {

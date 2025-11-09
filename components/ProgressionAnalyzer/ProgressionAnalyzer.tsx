@@ -1,45 +1,9 @@
 import React from 'react';
 import './ProgressionAnalyzer.css';
-import { getDisplayChordName, getAbbreviatedNameFromNotes } from '../../theory/chords';
-import type { Chord } from '../../modes/composer/Composer';
-// FIX: Changed type-only import to a value import to allow use with `typeof` for ReturnType.
-import { getSuggestionsForChord, getHarmonicTheoryForChord } from '../../theory/analysis';
-import CollapsibleSection from '../CollapsibleSection/CollapsibleSection';
+import { getDisplayChordName, getAbbreviatedNameFromNotes } from '../../theory/chords.js';
+import CollapsibleSection from '../CollapsibleSection/CollapsibleSection.js';
 
-interface AnalysisResults {
-    chordFrequency: Record<string, number>;
-    detectedPatterns: { name: string; chords: string[] }[];
-    analysis: {
-        richnessScore: number;
-        consonanceScore: number;
-        richnessTags: string[];
-        consonanceTags: string[];
-    };
-    hints: {
-        scaleNotes: string[];
-        modeInfo: { name: string; description: string };
-        diatonicChords: { name: string; roman: string }[];
-        borrowedChords: { name: string; roman: string }[];
-    };
-}
-
-interface SuggestionContextChord {
-    name: string | null;
-    notes: string[];
-}
-
-interface ProgressionAnalyzerProps {
-    analysis: AnalysisResults;
-    onAddChords: (chords: string[]) => void;
-    suggestions: {
-        categorized: ReturnType<typeof getSuggestionsForChord>;
-        // FIX: Corrected a typo from `typeof typeof` to a single `typeof`.
-        harmonicTheory: ReturnType<typeof getHarmonicTheoryForChord>;
-    };
-    suggestionContextChord: SuggestionContextChord | null;
-}
-
-const ScoreDial: React.FC<{ score: number }> = ({ score }) => {
+const ScoreDial = ({ score }) => {
     const radius = 50;
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (score / 100) * circumference;
@@ -73,7 +37,7 @@ const ScoreDial: React.FC<{ score: number }> = ({ score }) => {
 };
 
 
-const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({ 
+const ProgressionAnalyzer = ({ 
     analysis, 
     onAddChords,
     suggestions,
@@ -107,9 +71,11 @@ const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({
                                     role="button"
                                     tabIndex={0}
                                     onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && onAddChords([name])}
-                                    aria-label={`Add ${getDisplayChordName(name)} chord`}
+                                    // FIX: Provide undefined for optional 'octave' parameter to fix arity error
+                                    aria-label={`Add ${getDisplayChordName(name, undefined)} chord`}
                                 >
-                                    <span className="chord-info-name">{getDisplayChordName(name)}</span>
+                                    {/* FIX: Provide undefined for optional 'octave' parameter to fix arity error */}
+                                    <span className="chord-info-name">{getDisplayChordName(name, undefined)}</span>
                                     <span className="chord-info-roman">{roman}</span>
                                 </div>
                             ))}
@@ -117,7 +83,8 @@ const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({
                     </CollapsibleSection>
 
                     {hints.borrowedChords.length > 0 && (
-                        <CollapsibleSection title="Borrowed Chords">
+                        // FIX: Add missing required 'defaultOpen' prop
+                        <CollapsibleSection title="Borrowed Chords" defaultOpen={false}>
                             <div className="chord-info-grid">
                                 {hints.borrowedChords.map(({ name, roman }) => (
                                     <div 
@@ -127,9 +94,11 @@ const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({
                                         role="button"
                                         tabIndex={0}
                                         onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && onAddChords([name])}
-                                        aria-label={`Add ${getDisplayChordName(name)} chord`}
+                                        // FIX: Provide undefined for optional 'octave' parameter to fix arity error
+                                        aria-label={`Add ${getDisplayChordName(name, undefined)} chord`}
                                     >
-                                        <span className="chord-info-name">{getDisplayChordName(name)}</span>
+                                        {/* FIX: Provide undefined for optional 'octave' parameter to fix arity error */}
+                                        <span className="chord-info-name">{getDisplayChordName(name, undefined)}</span>
                                         <span className="chord-info-roman">{roman}</span>
                                     </div>
                                 ))}
@@ -157,7 +126,8 @@ const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({
                                                             className="add-movement-button"
                                                             onClick={() => onAddChords(movement.chordsToAdd)}
                                                         >
-                                                            Add: {movement.chordsToAdd.map(getDisplayChordName).join(', ')}
+                                                            {/* FIX: Provide undefined for optional 'octave' parameter to fix arity error */}
+                                                            Add: {movement.chordsToAdd.map(name => getDisplayChordName(name, undefined)).join(', ')}
                                                         </button>
                                                     </div>
                                                     <p className="movement-description">{movement.description}</p>

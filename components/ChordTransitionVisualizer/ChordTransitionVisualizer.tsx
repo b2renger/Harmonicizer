@@ -2,19 +2,10 @@ import React, { useMemo } from 'react';
 import { Note, Scale, Mode, Chord } from 'tonal';
 import './ChordTransitionVisualizer.css';
 
-interface ChordTransitionVisualizerProps {
-    fromNotes: string[];
-    toNotes: string[];
-    musicalKey: string;
-    musicalMode: string;
-    title: string;
-    onToChordNotesChange?: (notes: string[]) => void;
-}
-
 const MIN_MIDI = 48; // C3
 const MAX_MIDI = 83; // B5
 
-const ChordTransitionVisualizer: React.FC<ChordTransitionVisualizerProps> = ({
+const ChordTransitionVisualizer = ({
     fromNotes,
     toNotes,
     musicalKey,
@@ -49,8 +40,8 @@ const ChordTransitionVisualizer: React.FC<ChordTransitionVisualizerProps> = ({
     const { fromMidiSet, toMidiSet, toRootMidi } = useMemo(() => {
         const sortedToNotes = toNotes.slice().sort((a,b) => (Note.midi(a) || 0) - (Note.midi(b) || 0));
         return {
-            fromMidiSet: new Set(fromNotes.map(n => Note.midi(n)).filter(Boolean) as number[]),
-            toMidiSet: new Set(sortedToNotes.map(n => Note.midi(n)).filter(Boolean) as number[]),
+            fromMidiSet: new Set(fromNotes.map(n => Note.midi(n)).filter(Boolean)),
+            toMidiSet: new Set(sortedToNotes.map(n => Note.midi(n)).filter(Boolean)),
             toRootMidi: sortedToNotes.length > 0 ? Note.midi(sortedToNotes[0]) : null,
         };
     }, [fromNotes, toNotes]);
@@ -63,10 +54,10 @@ const ChordTransitionVisualizer: React.FC<ChordTransitionVisualizerProps> = ({
         return notes;
     }, []);
 
-    const handleClick = (midi: number) => {
+    const handleClick = (midi) => {
         if (!isInteractive) return;
 
-        const originalToMidi = toNotes.map(n => Note.midi(n)).filter(Boolean) as number[];
+        const originalToMidi = toNotes.map(n => Note.midi(n)).filter(Boolean);
         
         const newMidiSet = new Set(originalToMidi);
 
@@ -76,7 +67,8 @@ const ChordTransitionVisualizer: React.FC<ChordTransitionVisualizerProps> = ({
             newMidiSet.add(midi);
         }
 
-        const newNotes = Array.from(newMidiSet).sort((a,b) => a - b).map(m => Note.fromMidi(m));
+        // FIX: Cast sort parameters to number to fix TypeScript error
+        const newNotes = Array.from(newMidiSet).sort((a,b) => (a as number) - (b as number)).map(m => Note.fromMidi(m as number));
         onToChordNotesChange?.(newNotes);
     };
 

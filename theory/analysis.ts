@@ -1,7 +1,6 @@
 import { Chord, Scale, Note, Mode } from 'tonal';
-import type { Chord as ChordType } from '../modes/composer/Composer';
-import { getRomanNumeralForChord, getChordFromRomanNumeral, getDiatonicChords, getBorrowedChords } from './harmony';
-import { detectChordFromNotes } from './chords';
+import { getRomanNumeralForChord, getChordFromRomanNumeral, getDiatonicChords, getBorrowedChords } from './harmony.js';
+import { detectChordFromNotes } from './chords.js';
 
 /**
  * A robust method for checking common notes between chords, accounting for octaves.
@@ -9,7 +8,7 @@ import { detectChordFromNotes } from './chords';
  * @param chordName2 Second chord.
  * @returns The number of common pitch classes.
  */
-function calculateConsonance(chordName1: string, chordName2: string): number {
+function calculateConsonance(chordName1, chordName2) {
     if (!chordName1 || chordName1 === 'Rest' || !chordName2 || chordName2 === 'Rest') {
         return 0;
     }
@@ -29,7 +28,7 @@ function calculateConsonance(chordName1: string, chordName2: string): number {
     return commonNotes;
 }
 
-const getChordComplexityScore = (chordName: string): number => {
+const getChordComplexityScore = (chordName) => {
     const notes = Chord.get(chordName).notes;
     if (notes.length >= 5) return 3; // Extended chords (9ths, 11ths, 13ths)
     if (notes.length === 4) return 2; // Seventh chords
@@ -37,7 +36,7 @@ const getChordComplexityScore = (chordName: string): number => {
     return 0;
 };
 
-const getChordTensionScore = (chordName: string): number => {
+const getChordTensionScore = (chordName) => {
     // FIX: Cast quality to string to avoid type errors with tonal's sometimes-incomplete ChordQuality type.
     const quality = Chord.get(chordName).quality as string;
     if (quality === 'Diminished' || quality === 'Augmented' || quality === 'Half-diminished') return 3;
@@ -47,7 +46,7 @@ const getChordTensionScore = (chordName: string): number => {
     return 0;
 };
 
-const MODE_DESCRIPTIONS: Record<string, string> = {
+const MODE_DESCRIPTIONS = {
     major: 'Bright and happy. The most common scale in Western music.',
     minor: 'Sad or melancholic. Often used for dramatic or emotional effect.',
     dorian: 'Jazzy and soulful. A minor-type scale with a raised 6th degree.',
@@ -57,7 +56,7 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
     locrian: 'Tense and unstable. The darkest mode, rarely used as a tonal center.'
 };
 
-const DIATONIC_SUGGESTIONS: Record<string, string[]> = {
+const DIATONIC_SUGGESTIONS = {
     'I': ['IV', 'V', 'ii', 'vi'],
     'i': ['iv', 'V', 'VI', 'iio'],
     'II': ['V', 'vii°'], 'ii': ['V', 'vii°'],
@@ -75,12 +74,12 @@ const DIATONIC_SUGGESTIONS: Record<string, string[]> = {
  * @param musicalMode The mode of the key.
  * @returns An object with coherent and inventive suggestions.
  */
-export const getSuggestionsForChord = (contextChordName: string | null, musicalKey: string, musicalMode: string) => {
+export const getSuggestionsForChord = (contextChordName, musicalKey, musicalMode) => {
     const suggestions = {
-        coherent: [] as string[],
-        inventive: [] as string[],
-        jazzy: [] as string[],
-        classical: [] as string[],
+        coherent: [],
+        inventive: [],
+        jazzy: [],
+        classical: [],
     };
     
     // --- COHERENT (Diatonic) Suggestions ---
@@ -96,13 +95,13 @@ export const getSuggestionsForChord = (contextChordName: string | null, musicalK
                 if (suggestionNumerals) {
                     suggestions.coherent = suggestionNumerals
                         .map(numeral => getChordFromRomanNumeral(numeral, musicalKey, musicalMode))
-                        .filter((c): c is string => c !== null && c !== contextChordName);
+                        .filter((c) => c !== null && c !== contextChordName);
                 }
             }
         }
     } else {
         const startingNumerals = musicalMode === 'minor' ? ['i', 'iv', 'VI'] : ['I', 'vi', 'IV'];
-        suggestions.coherent = startingNumerals.map(n => getChordFromRomanNumeral(n, musicalKey, musicalMode)).filter(Boolean) as string[];
+        suggestions.coherent = startingNumerals.map(n => getChordFromRomanNumeral(n, musicalKey, musicalMode)).filter(Boolean);
     }
 
     // --- INVENTIVE (Modal Mixture) Suggestions ---
@@ -121,7 +120,7 @@ export const getSuggestionsForChord = (contextChordName: string | null, musicalK
     // FIX: Cast quality to string to fix the type error and check for 'Dominant seventh' for correctness.
     if (!contextChordInfo.empty && ((contextChordInfo.quality as string) === "Dominant" || (contextChordInfo.quality as string) === "Dominant seventh")) {
         suggestions.jazzy.push(`${contextChordInfo.tonic}7b9`, `${contextChordInfo.tonic}7#5`);
-        const tritoneSubNote = Note.transpose(contextChordInfo.tonic as string, 'd5');
+        const tritoneSubNote = Note.transpose(contextChordInfo.tonic, 'd5');
         suggestions.jazzy.push(`${tritoneSubNote}7`);
     }
     const iiChord = getChordFromRomanNumeral('ii', musicalKey, musicalMode);
@@ -141,7 +140,7 @@ export const getSuggestionsForChord = (contextChordName: string | null, musicalK
 
 
     // --- Final Filtering ---
-    const filterAndUnique = (arr: (string | null)[]) => [...new Set(arr.filter(c => c && c !== contextChordName))] as string[];
+    const filterAndUnique = (arr) => [...new Set(arr.filter(c => c && c !== contextChordName))];
     
     suggestions.coherent = filterAndUnique(suggestions.coherent);
     suggestions.inventive = filterAndUnique(suggestions.inventive);
@@ -151,7 +150,7 @@ export const getSuggestionsForChord = (contextChordName: string | null, musicalK
     return suggestions;
 }
 
-const HARMONIC_FUNCTION_THEORY: Record<string, { summary: string, movements: { name: string, description: string, to: string[] }[] }> = {
+const HARMONIC_FUNCTION_THEORY = {
     'I': {
         summary: "The tonic (I) is the 'home' chord, providing a sense of stability and rest. Progressions often begin here and seek to return.",
         movements: [
@@ -208,7 +207,7 @@ const HARMONIC_FUNCTION_THEORY: Record<string, { summary: string, movements: { n
  * @param musicalMode The mode of the progression.
  * @returns An object with a summary and a list of described movements, or null.
  */
-export const getHarmonicTheoryForChord = (contextChordName: string, musicalKey: string, musicalMode: string): { summary: string, movements: { name: string, description: string, chordsToAdd: string[] }[] } | null => {
+export const getHarmonicTheoryForChord = (contextChordName, musicalKey, musicalMode) => {
     const contextRoman = getRomanNumeralForChord(contextChordName, musicalKey, musicalMode);
     if (!contextRoman) return null;
     
@@ -224,7 +223,7 @@ export const getHarmonicTheoryForChord = (contextChordName: string, musicalKey: 
     const resolvedMovements = theory.movements.map(movement => {
         const chordsToAdd = movement.to
             .map(numeral => getChordFromRomanNumeral(numeral, musicalKey, musicalMode))
-            .filter((c): c is string => c !== null);
+            .filter((c) => c !== null);
         return { ...movement, chordsToAdd };
     }).filter(m => m.chordsToAdd.length > 0);
 
@@ -241,7 +240,7 @@ export const getHarmonicTheoryForChord = (contextChordName: string, musicalKey: 
  * @param musicalMode The mode of the key.
  * @returns An object with full analysis.
  */
-export const analyzeProgression = (progression: ChordType[], musicalKey: string, musicalMode: string) => {
+export const analyzeProgression = (progression, musicalKey, musicalMode) => {
     const validChords = progression.filter(c => c.notes.length > 0);
     const validChordNames = validChords.map(c => detectChordFromNotes(c.notes) || 'Unknown');
 
@@ -251,7 +250,7 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
             acc[name] = (acc[name] || 0) + 1;
         }
         return acc;
-    }, {} as Record<string, number>);
+    }, {});
 
     // Richness & Consonance Analysis
     let totalComplexity = 0;
@@ -278,12 +277,12 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
     const richnessScore = Math.round((avgComplexity / 3) * 100);
     const consonanceScore = Math.round((avgSmoothness / 4) * 100);
     
-    const richnessTags: string[] = [];
+    const richnessTags = [];
     if (avgComplexity > 2.2) richnessTags.push('Jazzy & Complex');
     else if (avgComplexity > 1.5) richnessTags.push('Rich Harmonies');
     else richnessTags.push('Simple & Direct');
     
-    const consonanceTags: string[] = [];
+    const consonanceTags = [];
     if (avgSmoothness > 2) consonanceTags.push('Smooth Voice Leading');
     else if (avgSmoothness < 1 && validChords.length > 1) consonanceTags.push('Leaping Motion');
     else consonanceTags.push('Moderate Motion');
@@ -312,7 +311,7 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
 
     // Note: The 'detectedPatterns' logic has been removed as per the design change.
     // The new approach focuses on contextual theory rather than retrospective pattern matching.
-    const detectedPatterns: any[] = []; 
+    const detectedPatterns = []; 
 
     return { chordFrequency, detectedPatterns, analysis, hints };
 };

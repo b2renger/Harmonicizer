@@ -1,47 +1,9 @@
 import React from 'react';
-import type { SynthType, RhodesSynthSettings, MoogSynthSettings, VCS3SynthSettings, FMSynthSettings, AMSynthSettings, BasicSynthSettings } from '../../audio/player';
-import * as Tone from 'tone';
 import './GraphicalEnvelopeEditor.css';
-import Knob from '../Knob/Knob';
-import ADSRGraph from '../ADSRGraph/ADSRGraph';
+import Knob from '../Knob/Knob.js';
+import ADSRGraph from '../ADSRGraph/ADSRGraph.js';
 
-interface GraphicalEnvelopeEditorProps {
-    masterGain: number;
-    onMasterGainChange: (gain: number) => void;
-    reverbWet: number;
-    onReverbWetChange: (wet: number) => void;
-    reverbTime: number;
-    onReverbTimeChange: (time: number) => void;
-    synthType: SynthType;
-    onSynthChange: (synth: SynthType) => void;
-    isArpeggiatorActive: boolean;
-    onArpeggiatorToggle: () => void;
-    arpeggiatorTiming: Tone.Unit.Time;
-    onArpeggiatorTimingChange: (timing: Tone.Unit.Time) => void;
-    arpeggiatorRepeats: number;
-    onArpeggiatorRepeatsChange: (repeats: number) => void;
-    
-    // Synth-specific settings
-    rhodesSettings: RhodesSynthSettings;
-    onRhodesSettingsChange: React.Dispatch<React.SetStateAction<RhodesSynthSettings>>;
-    moogLeadSettings: MoogSynthSettings;
-    onMoogLeadSettingsChange: React.Dispatch<React.SetStateAction<MoogSynthSettings>>;
-    moogBassSettings: MoogSynthSettings;
-    onMoogBassSettingsChange: React.Dispatch<React.SetStateAction<MoogSynthSettings>>;
-    vcs3DroneSettings: VCS3SynthSettings;
-    onVcs3DroneSettingsChange: React.Dispatch<React.SetStateAction<VCS3SynthSettings>>;
-    vcs3FxSettings: VCS3SynthSettings;
-    onVcs3FxSettingsChange: React.Dispatch<React.SetStateAction<VCS3SynthSettings>>;
-    fmSettings: FMSynthSettings;
-    onFmSettingsChange: React.Dispatch<React.SetStateAction<FMSynthSettings>>;
-    amSettings: AMSynthSettings;
-    onAmSettingsChange: React.Dispatch<React.SetStateAction<AMSynthSettings>>;
-    basicSynthSettings: BasicSynthSettings;
-    onBasicSynthSettingsChange: React.Dispatch<React.SetStateAction<BasicSynthSettings>>;
-}
-
-
-const GraphicalEnvelopeEditor: React.FC<GraphicalEnvelopeEditorProps> = (props) => {
+const GraphicalEnvelopeEditor = (props) => {
     
     const renderSynthSpecificKnobs = () => {
         switch (props.synthType) {
@@ -62,7 +24,7 @@ const GraphicalEnvelopeEditor: React.FC<GraphicalEnvelopeEditorProps> = (props) 
                 const settings = props.synthType === 'MoogLead' ? props.moogLeadSettings : props.moogBassSettings;
                 const setSettings = props.synthType === 'MoogLead' ? props.onMoogLeadSettingsChange : props.onMoogBassSettingsChange;
                 
-                const handleFilterEnvelopeChange = (newEnv: { attack: number; decay: number; sustain: number; release: number; }) => {
+                const handleFilterEnvelopeChange = (newEnv) => {
                     setSettings(s => ({
                         ...s,
                         filterAttack: newEnv.attack,
@@ -130,7 +92,7 @@ const GraphicalEnvelopeEditor: React.FC<GraphicalEnvelopeEditorProps> = (props) 
                             <Knob label="Harmonicity" value={props.amSettings.harmonicity} min={0.5} max={10} step={0.1} onChange={(v) => props.onAmSettingsChange(s => ({ ...s, harmonicity: v }))} />
                              <div className="control-group select-group">
                                  <label htmlFor="amModType">Mod Type</label>
-                                <select id="amModType" value={props.amSettings.modulationType} onChange={(e) => props.onAmSettingsChange(s => ({ ...s, modulationType: e.target.value as any }))}>
+                                <select id="amModType" value={props.amSettings.modulationType} onChange={(e) => props.onAmSettingsChange(s => ({ ...s, modulationType: e.target.value }))}>
                                     <option value="sine">Sine</option>
                                     <option value="square">Square</option>
                                     <option value="sawtooth">Sawtooth</option>
@@ -169,7 +131,7 @@ const GraphicalEnvelopeEditor: React.FC<GraphicalEnvelopeEditorProps> = (props) 
         }
     };
     
-    const onEnvelopeChange = (newEnvelope: any) => {
+    const onEnvelopeChange = (newEnvelope) => {
         switch (props.synthType) {
             case 'Rhodes': props.onRhodesSettingsChange(s => ({ ...s, envelope: newEnvelope })); break;
             case 'MoogLead': props.onMoogLeadSettingsChange(s => ({ ...s, envelope: newEnvelope })); break;
@@ -190,7 +152,7 @@ const GraphicalEnvelopeEditor: React.FC<GraphicalEnvelopeEditorProps> = (props) 
                     id="synth" 
                     name="synth" 
                     value={props.synthType}
-                    onChange={(e) => props.onSynthChange(e.target.value as SynthType)}
+                    onChange={(e) => props.onSynthChange(e.target.value)}
                 >
                     <option value="Rhodes">Rhodes EP</option>
                     <option value="MoogLead">Moog Lead</option>
@@ -229,8 +191,8 @@ const GraphicalEnvelopeEditor: React.FC<GraphicalEnvelopeEditorProps> = (props) 
                     <select
                         id="arpeggiatorTiming"
                         name="arpeggiatorTiming"
-                        value={props.arpeggiatorTiming as string}
-                        onChange={(e) => props.onArpeggiatorTimingChange(e.target.value as Tone.Unit.Time)}
+                        value={props.arpeggiatorTiming}
+                        onChange={(e) => props.onArpeggiatorTimingChange(e.target.value)}
                         aria-label="Arpeggiator Timing"
                         disabled={!props.isArpeggiatorActive}
                     >

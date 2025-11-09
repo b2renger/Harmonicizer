@@ -2,17 +2,10 @@ import React, { useMemo } from 'react';
 import { Note, Scale, Mode, Chord } from 'tonal';
 import './VerticalNoteVisualizer.css';
 
-interface VerticalNoteVisualizerProps {
-    notes: string[];
-    musicalKey: string;
-    musicalMode: string;
-    onNotesChange?: (notes: string[]) => void;
-}
-
 const MIN_MIDI = 48; // C3
 const MAX_MIDI = 83; // B5
 
-const VerticalNoteVisualizer: React.FC<VerticalNoteVisualizerProps> = ({ notes, musicalKey, musicalMode, onNotesChange }) => {
+const VerticalNoteVisualizer = ({ notes, musicalKey, musicalMode, onNotesChange }) => {
     const isInteractive = !!onNotesChange;
     
     const scaleInfo = useMemo(() => {
@@ -39,11 +32,11 @@ const VerticalNoteVisualizer: React.FC<VerticalNoteVisualizerProps> = ({ notes, 
 
     const chordNotesInfo = useMemo(() => {
         if (notes.length === 0) {
-            return { noteMidiSet: new Set<number>(), rootNoteMidi: null };
+            return { noteMidiSet: new Set(), rootNoteMidi: null };
         }
         const sortedNotes = notes.slice().sort((a,b) => (Note.midi(a) || 0) - (Note.midi(b) || 0));
         return {
-            noteMidiSet: new Set(sortedNotes.map(n => Note.midi(n)).filter(Boolean) as number[]),
+            noteMidiSet: new Set(sortedNotes.map(n => Note.midi(n)).filter(Boolean)),
             rootNoteMidi: Note.midi(sortedNotes[0]), // First note in sorted array is the bass/root of the voicing
         };
     }, [notes]);
@@ -56,10 +49,10 @@ const VerticalNoteVisualizer: React.FC<VerticalNoteVisualizerProps> = ({ notes, 
         return notes;
     }, []);
 
-    const handleClick = (midi: number) => {
+    const handleClick = (midi) => {
         if (!isInteractive) return;
 
-        const originalMidi = notes.map(n => Note.midi(n)).filter(Boolean) as number[];
+        const originalMidi = notes.map(n => Note.midi(n)).filter(Boolean);
         
         const newMidiSet = new Set(originalMidi);
 
@@ -69,7 +62,8 @@ const VerticalNoteVisualizer: React.FC<VerticalNoteVisualizerProps> = ({ notes, 
             newMidiSet.add(midi);
         }
 
-        const newNotes = Array.from(newMidiSet).sort((a, b) => a - b).map(m => Note.fromMidi(m));
+        // FIX: Cast sort parameters to number to fix TypeScript error
+        const newNotes = Array.from(newMidiSet).sort((a, b) => (a as number) - (b as number)).map(m => Note.fromMidi(m as number));
         onNotesChange?.(newNotes);
     };
 

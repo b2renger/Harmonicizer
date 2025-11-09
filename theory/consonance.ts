@@ -6,7 +6,7 @@ import { Chord } from 'tonal';
  * @param chordName2 The name of the second chord (e.g., 'Am7')
  * @returns The number of common notes.
  */
-export function calculateConsonance(chordName1: string, chordName2: string): number {
+export function calculateConsonance(chordName1, chordName2) {
     if (!chordName1 || chordName1 === 'Rest' || !chordName2 || chordName2 === 'Rest') {
         return 0;
     }

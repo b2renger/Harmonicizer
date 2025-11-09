@@ -1,36 +1,22 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { rootNotes, chordTypes, getChordNotesWithOctaves, detectChordFromNotes, getAbbreviatedNameFromNotes } from '../../theory/chords';
-import { getDiatonicChords, getBorrowedChords, getRomanNumeralForNote } from '../../theory/harmony';
-import type { Chord } from '../../modes/composer/Composer';
-import type { Player } from '../../audio/player';
+import { rootNotes, chordTypes, getChordNotesWithOctaves, detectChordFromNotes, getAbbreviatedNameFromNotes } from '../../theory/chords.js';
+import { getDiatonicChords, getBorrowedChords, getRomanNumeralForNote } from '../../theory/harmony.js';
 import { Chord as TonalChord, Note } from 'tonal';
-import ChordTransitionVisualizer from '../ChordTransitionVisualizer/ChordTransitionVisualizer';
-import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisualizer';
-import CollapsibleSection from '../CollapsibleSection/CollapsibleSection';
+import ChordTransitionVisualizer from '../ChordTransitionVisualizer/ChordTransitionVisualizer.js';
+import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisualizer.js';
+import CollapsibleSection from '../CollapsibleSection/CollapsibleSection.js';
 import './ChordSelector.css';
 
-interface ChordSelectorProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onSave: (chord: { notes: string[], duration: number }) => void;
-    chord: Partial<Chord> | null;
-    musicalKey: string;
-    musicalMode: string;
-    contextualChord: Chord | null;
-    nextChord: Chord | null;
-    player: Player | null;
-}
-
-const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode, contextualChord, nextChord, player }) => {
+const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode, contextualChord, nextChord, player }) => {
     const [selectedRoot, setSelectedRoot] = useState('C');
     const [selectedType, setSelectedType] = useState('maj7');
     const [selectedDuration, setSelectedDuration] = useState(4);
     const [selectedOctave, setSelectedOctave] = useState(4);
     const [isRest, setIsRest] = useState(false);
-    const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
+    const [selectedNotes, setSelectedNotes] = useState([]);
 
 
-    const parseChordName = (name: string | undefined) => {
+    const parseChordName = (name) => {
         if (!name || name === 'Rest') {
             return { root: null, type: null };
         }
@@ -98,7 +84,7 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
         updateNotesFromControls();
     }, [selectedRoot, selectedType, selectedOctave, isRest]);
 
-    const handleSelectedChordNotesUpdate = (newNotes: string[]) => {
+    const handleSelectedChordNotesUpdate = (newNotes) => {
         setSelectedNotes(newNotes);
         const newChordName = detectChordFromNotes(newNotes);
         if (newChordName) {
@@ -113,13 +99,13 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
         const diatonicChords = getDiatonicChords(musicalKey, musicalMode);
         const borrowedChords = getBorrowedChords(musicalKey, musicalMode);
         
-        const diatonicNoteSet = new Set<string>();
+        const diatonicNoteSet = new Set();
         diatonicChords.forEach(c => {
             const tonic = TonalChord.get(c.name).tonic;
             if (tonic) diatonicNoteSet.add(tonic);
         });
     
-        const borrowedNoteSet = new Set<string>();
+        const borrowedNoteSet = new Set();
         borrowedChords.forEach(c => {
             const tonic = TonalChord.get(c.name).tonic;
             if (tonic) borrowedNoteSet.add(tonic);
@@ -197,6 +183,7 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
                                 </div>
                             </div>
 
+                            {/* FIX: Add missing required 'defaultOpen' prop */}
                             <CollapsibleSection title="Customization" defaultOpen>
                                 <div className={`customization-controls ${isRest ? 'disabled' : ''}`}>
                                     <div className="chromatic-controls">
@@ -298,6 +285,8 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
                                         title={`To ${getAbbreviatedNameFromNotes(nextChord.notes)}`}
                                         musicalKey={musicalKey}
                                         musicalMode={musicalMode}
+                                        // FIX: Pass a no-op function for the required 'onToChordNotesChange' prop on this non-interactive instance
+                                        onToChordNotesChange={() => {}}
                                     />
                                 )}
                             </div>

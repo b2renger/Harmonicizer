@@ -1,14 +1,14 @@
 import { Chord, Note } from 'tonal';
 
-export const rootNotes: string[] = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+export const rootNotes = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
-export const chordTypes: string[] = [
+export const chordTypes = [
     'maj', 'm', 'maj7', 'm7', '7',
     'dim', 'dim7', 'm7b5', 'aug',
     'sus2', 'sus4', '6', 'm6', 'add9', 'm9', 'maj9'
 ];
 
-export const modes: string[] = [
+export const modes = [
     'major',
     'minor',
     'dorian',
@@ -23,7 +23,7 @@ export const modes: string[] = [
  * @param notes An array of note names (e.g., ['C4', 'E4', 'G4']).
  * @returns The detected chord symbol (e.g., 'C') or null if no valid chord is detected.
  */
-export const detectChordFromNotes = (notes: string[]): string | null => {
+export const detectChordFromNotes = (notes) => {
     // A chord needs at least two notes to be detected.
     if (notes.length < 2) {
         return null;
@@ -56,7 +56,7 @@ export const detectChordFromNotes = (notes: string[]): string | null => {
  * @param notes An array of note names.
  * @returns The detected chord symbol or a fallback.
  */
-export const getAbbreviatedNameFromNotes = (notes: string[]): string => {
+export const getAbbreviatedNameFromNotes = (notes) => {
     if (!notes || notes.length === 0) return "Rest";
     const detectedName = detectChordFromNotes(notes);
     if (!detectedName) {
@@ -71,7 +71,7 @@ export const getAbbreviatedNameFromNotes = (notes: string[]): string => {
  * @param chordName The chord name to abbreviate.
  * @returns The abbreviated and valid chord name.
  */
-export const getAbbreviatedChordName = (chordName: string): string => {
+export const getAbbreviatedChordName = (chordName) => {
     if (!chordName || chordName === 'Rest') {
         return chordName;
     }
@@ -94,7 +94,7 @@ export const getAbbreviatedChordName = (chordName: string): string => {
  * @param octave The octave of the chord. If provided, it will be included in the name.
  * @returns The descriptive chord name.
  */
-export const getDisplayChordName = (chordName: string, octave?: number): string => {
+export const getDisplayChordName = (chordName, octave) => {
     if (!chordName || chordName === 'Rest') {
         return "Rest";
     }
@@ -104,7 +104,7 @@ export const getDisplayChordName = (chordName: string, octave?: number): string 
     }
     
     const tonic = chordInfo.tonic;
-    const quality = (chordInfo.quality as string) || '';
+    const quality = (chordInfo.quality) || '';
 
     let descriptiveQuality = quality.toLowerCase();
 
@@ -139,11 +139,11 @@ export const getDisplayChordName = (chordName: string, octave?: number): string 
  * @param upperPitchClasses An array of the pitch classes for the other notes in a specific order (e.g., ['G', 'B', 'E']).
  * @returns A new array of notes forming an ascending chord voicing (e.g., ['C4', 'G4', 'B4', 'E5']).
  */
-export const buildAscendingVoicing = (bassNote: string, upperPitchClasses: string[]): string[] => {
+export const buildAscendingVoicing = (bassNote, upperPitchClasses) => {
     let currentMidi = Note.midi(bassNote);
     if (currentMidi === null) return [];
 
-    const results: string[] = [bassNote];
+    const results = [bassNote];
     
     for (const pc of upperPitchClasses) {
         let nextOctave = Note.octave(Note.fromMidi(currentMidi)) || 4;
@@ -176,7 +176,7 @@ export const buildAscendingVoicing = (bassNote: string, upperPitchClasses: strin
  * @param direction Whether to find the next inversion ('up') or the previous one ('down').
  * @returns A new array of notes representing the inverted chord.
  */
-const getInversion = (notes: string[], direction: 'up' | 'down'): string[] => {
+const getInversion = (notes, direction) => {
     // A chord needs at least two notes to be inverted.
     if (notes.length < 2) return notes;
 
@@ -227,7 +227,7 @@ const getInversion = (notes: string[], direction: 'up' | 'down'): string[] => {
     
     // Find the specific instance (with octave) of the new bass note that is
     // closest to the old bass note in the desired direction.
-    let newBassNote: string;
+    let newBassNote;
     if (direction === 'up') {
         // Find the first note with the new pitch class that is higher than the old bass note.
         let octave = Note.octave(bassNote) || 4;
@@ -261,10 +261,10 @@ const getInversion = (notes: string[], direction: 'up' | 'down'): string[] => {
     return buildAscendingVoicing(newBassNote, upperPitchClasses);
 };
 
-export const getNextInversion = (notes: string[]): string[] => getInversion(notes, 'up');
-export const getPreviousInversion = (notes: string[]): string[] => getInversion(notes, 'down');
+export const getNextInversion = (notes) => getInversion(notes, 'up');
+export const getPreviousInversion = (notes) => getInversion(notes, 'down');
 
-const shuffle = <T>(array: T[]): T[] => {
+const shuffle = (array) => {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [array[i], array[j]] = [array[j], array[i]];
@@ -272,7 +272,7 @@ const shuffle = <T>(array: T[]): T[] => {
     return array;
 };
 
-export const getPermutedVoicing = (notes: string[]): string[] => {
+export const getPermutedVoicing = (notes) => {
     if (notes.length < 3) return notes;
 
     const sortedNotes = notes.slice().sort((a, b) => (Note.midi(a) || 0) - (Note.midi(b) || 0));
@@ -302,7 +302,7 @@ export const getPermutedVoicing = (notes: string[]): string[] => {
  * @param octave The octave for the bass note of the chord.
  * @returns An array of scientific note names (e.g., ['E4', 'G4', 'B4', 'C5']).
  */
-export const getChordNotesWithOctaves = (chordName: string, octave: number): string[] => {
+export const getChordNotesWithOctaves = (chordName, octave) => {
     if (!chordName || chordName === 'Rest') return [];
 
     const chordInfo = Chord.get(chordName);
@@ -326,7 +326,7 @@ export const getChordNotesWithOctaves = (chordName: string, octave: number): str
 
     // 4. Apply octaves, starting with the bass note, ensuring the voicing is always ascending
     let currentOctave = octave;
-    let previousMidi: number | null = null; 
+    let previousMidi = null; 
 
     return reorderedNotes.map(note => {
         let noteWithOctave = `${note}${currentOctave}`;

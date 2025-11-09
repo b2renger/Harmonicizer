@@ -1,16 +1,7 @@
 import React from 'react';
 import './KeySignature.css';
 
-interface KeySignatureProps {
-    currentKey: string;
-    currentMode: string;
-    onKeyChange: (key: string) => void;
-    onModeChange: (mode: string) => void;
-    rootNotes: string[];
-    modes: string[];
-}
-
-const KeySignature: React.FC<KeySignatureProps> = ({
+const KeySignature = ({
     currentKey,
     currentMode,
     onKeyChange,

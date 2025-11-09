@@ -1,5 +1,5 @@
 import { Mode, Chord, Scale, Interval, Note } from 'tonal';
-import { getAbbreviatedChordName, getChordNotesWithOctaves as getChordNotesWithOctavesUtil } from './chords';
+import { getAbbreviatedChordName, getChordNotesWithOctaves as getChordNotesWithOctavesUtil } from './chords.js';
 
 /**
  * A robust wrapper around Tonal.Chord.get to handle inconsistencies
@@ -7,7 +7,7 @@ import { getAbbreviatedChordName, getChordNotesWithOctaves as getChordNotesWithO
  * @param chordName The name of the chord to parse.
  * @returns A Tonal Chord object.
  */
-const getChordInfo = (chordName: string) => {
+const getChordInfo = (chordName) => {
     if (!chordName) return Chord.get('');
     
     // First try to get it directly
@@ -35,7 +35,7 @@ const getChordInfo = (chordName: string) => {
  * @param mode The mode of the key (e.g., "major").
  * @returns A Roman numeral string (e.g., "vim7") or an empty string.
  */
-export const getRomanNumeralForChord = (chordName: string, key: string, mode: string): string => {
+export const getRomanNumeralForChord = (chordName, key, mode) => {
     const scale = Scale.get(`${key} ${mode}`);
     const chordInfo = Chord.get(chordName);
     if (scale.empty || chordInfo.empty || !chordInfo.tonic) return '';
@@ -108,7 +108,7 @@ export const getRomanNumeralForChord = (chordName: string, key: string, mode: st
  * @param mode The mode of the key (e.g., "major").
  * @returns The Roman numeral as a string (e.g., "ii", "bVI", "#IV°") or an empty string if not found.
  */
-export const getRomanNumeralForNote = (note: string, key: string, mode: string): string => {
+export const getRomanNumeralForNote = (note, key, mode) => {
     const scale = Scale.get(`${key} ${mode}`);
     const diatonicTriads = Mode.triads(mode, key);
     if (scale.empty || diatonicTriads.length === 0) return '';
@@ -121,7 +121,7 @@ export const getRomanNumeralForNote = (note: string, key: string, mode: string):
     if (degreeIndex !== -1) {
         // It's diatonic, so we can determine the quality and case.
         const diatonicTriad = diatonicTriads[degreeIndex];
-        const quality = Chord.get(diatonicTriad).quality as string;
+        const quality = Chord.get(diatonicTriad).quality;
         const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
         let roman = numerals[degreeIndex];
         if (quality === 'Minor' || quality === 'Diminished') {
@@ -159,7 +159,7 @@ export const getRomanNumeralForNote = (note: string, key: string, mode: string):
 }
 
 
-export const getDiatonicChords = (tonic: string, modeName: string): Array<{ name: string; roman: string }> => {
+export const getDiatonicChords = (tonic, modeName) => {
     try {
         const chords = Mode.seventhChords(modeName, tonic);
         if (!chords || chords.length === 0) {
@@ -177,8 +177,8 @@ export const getDiatonicChords = (tonic: string, modeName: string): Array<{ name
     }
 };
 
-export const getBorrowedChords = (tonic: string, modeName: string): Array<{ name: string; roman: string }> => {
-    let parallelModeName: string | null = null;
+export const getBorrowedChords = (tonic, modeName) => {
+    let parallelModeName = null;
     if (modeName === 'major') parallelModeName = 'minor';
     else if (modeName === 'minor') parallelModeName = 'major';
     else return []; // Borrowing is most common between parallel major/minor
@@ -200,7 +200,7 @@ export const getBorrowedChords = (tonic: string, modeName: string): Array<{ name
 };
 
 // A dictionary of common harmonic patterns.
-export const COMMON_PATTERNS: Record<string, string[]> = {
+export const COMMON_PATTERNS = {
     'ii-V-I Turnaround': ['ii', 'V', 'I'],
     'I-vi-IV-V "Doo-Wop"': ['I', 'vi', 'IV', 'V'],
     'I-V-vi-IV "Axis"': ['I', 'V', 'vi', 'IV'],
@@ -218,7 +218,7 @@ export const COMMON_PATTERNS: Record<string, string[]> = {
  * @param mode The mode of the key.
  * @returns A chord symbol (e.g., "Fmaj7") or null.
  */
-export const getChordFromRomanNumeral = (roman: string, key: string, mode: string): string | null => {
+export const getChordFromRomanNumeral = (roman, key, mode) => {
     const scale = Scale.get(`${key} ${mode}`);
     if (scale.empty) return null;
 
@@ -243,10 +243,10 @@ export const getChordFromRomanNumeral = (roman: string, key: string, mode: strin
  * @param mode The mode of the key.
  * @returns An array of 4 chord names.
  */
-export const generateRandomProgression = (key: string, mode: string): string[] => {
+export const generateRandomProgression = (key, mode) => {
     const fourChordPatterns = Object.values(COMMON_PATTERNS).filter(p => p.length === 4);
     
-    let patternToUse: string[];
+    let patternToUse;
 
     if (fourChordPatterns.length > 0) {
         patternToUse = fourChordPatterns[Math.floor(Math.random() * fourChordPatterns.length)];
@@ -257,12 +257,12 @@ export const generateRandomProgression = (key: string, mode: string): string[] =
     
     const chords = patternToUse
         .map(numeral => getChordFromRomanNumeral(numeral, key, mode))
-        .filter((c): c is string => c !== null);
+        .filter((c) => c !== null);
 
     // If any chord failed to convert, use a failsafe progression
     if (chords.length !== 4) {
         const fallbackNumerals = mode === 'minor' ? ['i', 'iv', 'V', 'i'] : ['I', 'IV', 'V', 'I'];
-         return fallbackNumerals.map(n => getChordFromRomanNumeral(n, key, mode)).filter((c): c is string => c !== null);
+         return fallbackNumerals.map(n => getChordFromRomanNumeral(n, key, mode)).filter((c) => c !== null);
     }
     
     return chords;

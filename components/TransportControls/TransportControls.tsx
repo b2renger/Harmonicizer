@@ -1,16 +1,7 @@
 import React from 'react';
 import './TransportControls.css';
 
-interface TransportControlsProps {
-    isPlaying: boolean;
-    tempo: number;
-    isLooping: boolean;
-    onPlayToggle: () => void;
-    onTempoChange: (tempo: number) => void;
-    onLoopToggle: () => void;
-}
-
-const TransportControls: React.FC<TransportControlsProps> = ({
+const TransportControls = ({
     isPlaying,
     tempo,
     isLooping,

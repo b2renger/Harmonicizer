@@ -1,26 +1,14 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import './ADSRGraph.css';
 
-interface EnvelopeSettings {
-    attack: number;
-    decay: number;
-    sustain: number;
-    release: number;
-}
-
-interface ADSRGraphProps {
-    envelope: EnvelopeSettings;
-    onEnvelopeChange: (newEnvelope: EnvelopeSettings) => void;
-}
-
 const MAX_ATTACK = 2; // seconds
 const MAX_DECAY = 2; // seconds
 const MAX_RELEASE = 4; // seconds
 const SUSTAIN_VISUAL_TIME = 1; // a fixed time for the sustain portion in the graph
 
-const ADSRGraph: React.FC<ADSRGraphProps> = ({ envelope, onEnvelopeChange }) => {
-    const svgRef = useRef<SVGSVGElement>(null);
-    const [draggingPoint, setDraggingPoint] = useState<string | null>(null);
+const ADSRGraph = ({ envelope, onEnvelopeChange }) => {
+    const svgRef = useRef(null);
+    const [draggingPoint, setDraggingPoint] = useState(null);
     const [inputValues, setInputValues] = useState({
         attack: (envelope.attack * 1000).toFixed(0),
         decay: (envelope.decay * 1000).toFixed(0),
@@ -43,23 +31,23 @@ const ADSRGraph: React.FC<ADSRGraphProps> = ({ envelope, onEnvelopeChange }) => 
     const viewBoxHeight = 250;
     const padding = 20;
 
-    const timeToX = useCallback((time: number) => {
+    const timeToX = useCallback((time) => {
         return padding + (time / totalTime) * (viewBoxWidth - 2 * padding);
     }, [totalTime, viewBoxWidth, padding]);
 
-    const levelToY = useCallback((level: number) => {
+    const levelToY = useCallback((level) => {
         return padding + (1 - level) * (viewBoxHeight - 2 * padding);
     }, [viewBoxHeight, padding]);
     
-    const xToTime = useCallback((x: number) => {
+    const xToTime = useCallback((x) => {
          return ((x - padding) / (viewBoxWidth - 2 * padding)) * totalTime;
     }, [totalTime, viewBoxWidth, padding]);
     
-    const yToLevel = useCallback((y: number) => {
+    const yToLevel = useCallback((y) => {
         return 1 - ((y - padding) / (viewBoxHeight - 2 * padding));
     }, [viewBoxHeight, padding]);
 
-    const getSVGCoordinates = useCallback((e: MouseEvent | TouchEvent): { x: number, y: number } => {
+    const getSVGCoordinates = useCallback((e) => {
         const svg = svgRef.current;
         if (!svg) return { x: 0, y: 0 };
 
@@ -92,7 +80,7 @@ const ADSRGraph: React.FC<ADSRGraphProps> = ({ envelope, onEnvelopeChange }) => 
 
     const pathData = `M ${points.p0.x},${points.p0.y} L ${points.p1.x},${points.p1.y} L ${points.p2.x},${points.p2.y} L ${points.p3.x},${points.p3.y} L ${points.p4.x},${points.p4.y}`;
 
-    const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
+    const handleDragMove = useCallback((e) => {
         if (!draggingPoint) return;
         if ('touches' in e) {
             e.preventDefault();
@@ -132,7 +120,7 @@ const ADSRGraph: React.FC<ADSRGraphProps> = ({ envelope, onEnvelopeChange }) => 
         document.removeEventListener('touchend', handleDragEnd);
     }, [handleDragMove]);
 
-    const handleDragStart = (pointName: string) => (e: React.MouseEvent | React.TouchEvent) => {
+    const handleDragStart = (pointName) => (e) => {
         e.preventDefault();
         setDraggingPoint(pointName);
         document.addEventListener('mousemove', handleDragMove);
@@ -141,11 +129,11 @@ const ADSRGraph: React.FC<ADSRGraphProps> = ({ envelope, onEnvelopeChange }) => 
         document.addEventListener('touchend', handleDragEnd);
     };
 
-    const handleInputChange = (param: keyof EnvelopeSettings, value: string) => {
+    const handleInputChange = (param, value) => {
         setInputValues(prev => ({ ...prev, [param]: value }));
     };
 
-    const handleInputCommit = (param: keyof EnvelopeSettings) => {
+    const handleInputCommit = (param) => {
         let numericValue = parseFloat(inputValues[param]);
         if (isNaN(numericValue)) {
             // Revert on invalid input
@@ -176,10 +164,10 @@ const ADSRGraph: React.FC<ADSRGraphProps> = ({ envelope, onEnvelopeChange }) => 
         onEnvelopeChange(newEnvelope);
     };
     
-    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, param: keyof EnvelopeSettings) => {
+    const handleInputKeyDown = (e, param) => {
         if (e.key === 'Enter') {
             handleInputCommit(param);
-            (e.target as HTMLInputElement).blur();
+            (e.target).blur();
         } else if (e.key === 'Escape') {
             // Revert changes and blur
              setInputValues({
@@ -188,7 +176,7 @@ const ADSRGraph: React.FC<ADSRGraphProps> = ({ envelope, onEnvelopeChange }) => 
                 sustain: envelope.sustain.toFixed(2),
                 release: (envelope.release * 1000).toFixed(0),
             });
-            (e.target as HTMLInputElement).blur();
+            (e.target).blur();
         }
     }
 

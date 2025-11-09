@@ -1,29 +1,8 @@
 import React from 'react';
 import './ChordCard.css';
-import { getAbbreviatedNameFromNotes } from '../../theory/chords';
+import { getAbbreviatedNameFromNotes } from '../../theory/chords.js';
 
-interface ChordCardProps {
-    chordId: string;
-    notes: string[];
-    duration: number;
-    onEdit: () => void;
-    onSelect: (chordId: string) => void;
-    isSelected?: boolean;
-    isPlaying?: boolean;
-    onRemove?: (id: string) => void;
-    onNextInvert: () => void;
-    onPreviousInvert: () => void;
-    onPermute: () => void;
-    // Drag & Drop event handlers
-    onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
-    onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void;
-    onDragLeave?: (e: React.DragEvent<HTMLDivElement>) => void;
-    onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
-    onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
-    isDragOver?: boolean;
-}
-
-const ChordCard: React.FC<ChordCardProps> = ({ 
+const ChordCard = ({ 
     chordId, 
     notes,
     duration, 

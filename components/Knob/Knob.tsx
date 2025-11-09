@@ -1,17 +1,7 @@
 import React, { useRef, useCallback, memo, useState, useEffect } from 'react';
 import './Knob.css';
 
-interface KnobProps {
-    label: string;
-    value: number;
-    min: number;
-    max: number;
-    step?: number;
-    onChange: (value: number) => void;
-    unit?: string;
-}
-
-const Knob: React.FC<KnobProps> = ({
+const Knob = ({
     label,
     value,
     min,
@@ -20,7 +10,7 @@ const Knob: React.FC<KnobProps> = ({
     onChange,
     unit = ''
 }) => {
-    const knobRef = useRef<HTMLDivElement>(null);
+    const knobRef = useRef(null);
     const initialDragState = useRef({ value: 0, mouseY: 0 });
     const [isEditing, setIsEditing] = useState(false);
     const [inputValue, setInputValue] = useState(String(value));
@@ -32,7 +22,7 @@ const Knob: React.FC<KnobProps> = ({
         }
     }, [value, isEditing]);
 
-    const getFormattedValue = (val: number) => {
+    const getFormattedValue = (val) => {
         if (unit === 'ms' || unit === 'Hz') {
             return val.toFixed(0);
         }
@@ -44,7 +34,7 @@ const Knob: React.FC<KnobProps> = ({
         return String(parseFloat(val.toFixed(fixedPoints)));
     };
 
-    const valueToRotation = useCallback((val: number) => {
+    const valueToRotation = useCallback((val) => {
         const range = max - min;
         if (range === 0) return -135;
         const normalizedValue = (val - min) / range;
@@ -52,7 +42,7 @@ const Knob: React.FC<KnobProps> = ({
         return normalizedValue * totalRotation - 135;
     }, [min, max]);
 
-    const handleMouseMove = useCallback((e: MouseEvent) => {
+    const handleMouseMove = useCallback((e) => {
         const { value: initialValue, mouseY: initialMouseY } = initialDragState.current;
         const deltaY = initialMouseY - e.clientY; // Inverted for natural "up is more" feel
         const sensitivity = (max - min) / 200; // Drag 200px to cover the entire range
@@ -73,7 +63,7 @@ const Knob: React.FC<KnobProps> = ({
         document.body.style.cursor = 'default';
     }, [handleMouseMove]);
 
-    const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const handleMouseDown = (e) => {
         e.preventDefault();
         initialDragState.current = { value, mouseY: e.clientY };
         document.addEventListener('mousemove', handleMouseMove);
@@ -85,7 +75,7 @@ const Knob: React.FC<KnobProps> = ({
         setIsEditing(true);
     };
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleInputChange = (e) => {
         setInputValue(e.target.value);
     };
 
@@ -110,14 +100,14 @@ const Knob: React.FC<KnobProps> = ({
         commitValue();
     };
 
-    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const handleInputKeyDown = (e) => {
         if (e.key === 'Enter') {
             commitValue();
-            (e.target as HTMLInputElement).blur();
+            (e.target).blur();
         } else if (e.key === 'Escape') {
             setInputValue(getFormattedValue(value));
             setIsEditing(false);
-            (e.target as HTMLInputElement).blur();
+            (e.target).blur();
         }
     };
 
