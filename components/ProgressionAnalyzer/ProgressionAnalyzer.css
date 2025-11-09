@@ -27,40 +27,6 @@
     font-size: 0.9rem;
 }
 
-.patterns-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.patterns-list li {
-    background-color: #2a2a2a;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.patterns-list .pattern-name {
-    font-weight: 700;
-    color: #fff;
-}
-
-.patterns-list .pattern-chords {
-    font-family: monospace;
-    color: #ffbd6a;
-    font-size: 0.9rem;
-    text-align: right;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding-left: 0.5rem;
-}
-
 .analysis-grid h4 {
     color: #ddd;
     font-size: 0.9rem;
@@ -70,7 +36,7 @@
 }
 
 .analysis-grid h4.suggestion-header {
-    margin-top: 1.5rem; /* Add space between detected and suggested lists */
+    margin-top: 0; 
 }
 
 .hints-section {
@@ -214,33 +180,61 @@
     border: 1px solid #444;
 }
 
-/* New suggestion styles */
-.suggestion-header .suggestion-context {
-    color: #a0a0a0;
-    font-weight: 400;
-    font-size: 0.9em;
-}
-
-.suggestions-container {
+/* New Harmonic Theory styles */
+.harmonic-theory-section {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
 }
 
-.suggestion-category h5 {
-    margin: 0 0 0.75rem 0;
-    color: #888;
+.harmonic-summary {
+    background-color: #2a2a2a;
+    padding: 1rem;
+    border-radius: 6px;
     font-size: 0.9rem;
-    font-weight: 400;
+    color: #ccc;
+    border-left: 3px solid #4facfe;
+    margin: 0;
 }
 
-.suggestion-grid {
+.harmonic-movements-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 1rem;
 }
 
-.suggestion-button {
+.harmonic-movement-item {
+    background-color: #222;
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
+.movement-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.movement-name {
+    font-weight: 700;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.movement-description {
+    font-size: 0.9rem;
+    color: #a0a0a0;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.add-movement-button {
     background-color: #333;
     border: 1px solid #555;
     color: #fff;
@@ -250,49 +244,14 @@
     font-weight: 400;
     transition: all 0.2s ease;
     font-size: 0.9rem;
+    white-space: nowrap;
 }
 
-.suggestion-button:hover {
+.add-movement-button:hover {
     background-color: #4facfe;
     color: #000000;
     border-color: #4facfe;
     transform: translateY(-2px);
-}
-
-
-.suggestions-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.suggestions-list .suggestion-item {
-    background-color: #222; /* Slightly different background for suggestions */
-}
-
-.suggestion-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    overflow: hidden; /* Prevent long names from pushing button out */
-}
-
-.add-suggestion-button {
-    background-color: #444;
-    border: 1px solid #555;
-    color: #fff;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 700;
-    transition: all 0.2s ease;
-    margin-left: 1rem; /* Space between text and button */
-}
-
-.add-suggestion-button:hover {
-    background-color: #4facfe;
-    color: #000000;
-    border-color: #4facfe;
 }
 
 @media (max-width: 900px) {

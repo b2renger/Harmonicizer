@@ -2,7 +2,8 @@ import React from 'react';
 import './ProgressionAnalyzer.css';
 import { getDisplayChordName, getAbbreviatedNameFromNotes } from '../../theory/chords';
 import type { Chord } from '../../modes/composer/Composer';
-import type { getSuggestionsForChord, getPatternSuggestionsForChord } from '../../theory/analysis';
+// FIX: Changed type-only import to a value import to allow use with `typeof` for ReturnType.
+import { getSuggestionsForChord, getHarmonicTheoryForChord } from '../../theory/analysis';
 
 interface AnalysisResults {
     chordFrequency: Record<string, number>;
@@ -29,7 +30,8 @@ interface ProgressionAnalyzerProps {
     onAddChords: (chords: string[]) => void;
     suggestions: {
         categorized: ReturnType<typeof getSuggestionsForChord>;
-        patterns: ReturnType<typeof getPatternSuggestionsForChord>;
+        // FIX: Corrected a typo from `typeof typeof` to a single `typeof`.
+        harmonicTheory: ReturnType<typeof getHarmonicTheoryForChord>;
     };
     suggestionContextChord: SuggestionContextChord | null;
 }
@@ -90,11 +92,8 @@ const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({
     suggestions,
     suggestionContextChord
 }) => {
-    const { detectedPatterns, hints, richnessAnalysis } = analysis;
-    const { categorized, patterns } = suggestions;
-
-    const hasCategorizedSuggestions = Object.values(categorized).some(arr => arr.length > 0);
-    const hasSuggestions = hasCategorizedSuggestions || patterns.length > 0;
+    const { hints, richnessAnalysis } = analysis;
+    const { harmonicTheory } = suggestions;
     
     return (
         <div className="progression-analyzer" aria-live="polite">
@@ -152,62 +151,38 @@ const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({
                     </div>
                 </section>
                 <section className="analysis-cell">
-                    <h3>Harmonic Patterns</h3>
-                    
-                    <h4>Detected</h4>
-                    {detectedPatterns.length > 0 ? (
-                        <ul className="patterns-list">
-                            {detectedPatterns.map((pattern, index) => (
-                                <li key={`${pattern.name}-${index}`}>
-                                    <span className="pattern-name">{pattern.name}</span>
-                                    <span className="pattern-chords">{pattern.chords.map(name => getDisplayChordName(name)).join(' → ')}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="placeholder-text">No common patterns detected yet.</p>
-                    )}
-
-                    <h4 className="suggestion-header">
-                        Next Chord Ideas
-                        {suggestionContextChord && suggestionContextChord.notes.length > 0 && (
-                            <span className="suggestion-context"> after {getAbbreviatedNameFromNotes(suggestionContextChord.notes)}</span>
-                        )}
-                    </h4>
-                    {!hasSuggestions ? (
-                         <p className="placeholder-text">Add a chord or select one to see suggestions.</p>
-                    ) : (
-                        <div className="suggestions-container">
-                            <SuggestionCategory title="Coherent" chords={categorized.coherent} onAdd={(name) => onAddChords([name])} />
-                            <SuggestionCategory title="Jazzy" chords={categorized.jazzy} onAdd={(name) => onAddChords([name])} />
-                            <SuggestionCategory title="Classical" chords={categorized.classical} onAdd={(name) => onAddChords([name])} />
-                            <SuggestionCategory title="Inventive" chords={categorized.inventive} onAdd={(name) => onAddChords([name])} />
-                            
-                            {patterns.length > 0 && (
-                                <div className="suggestion-category">
-                                    <h5>Pattern Completions</h5>
-                                    <ul className="patterns-list suggestions-list">
-                                        {patterns.map((suggestion, index) => (
-                                            <li key={`${suggestion.name}-${index}`} className="suggestion-item">
-                                                <div className="suggestion-info">
-                                                    <span className="pattern-name">{suggestion.name}</span>
-                                                    <span className="pattern-chords">
-                                                        Add: {suggestion.chordsToAdd.map(name => getDisplayChordName(name)).join(' → ')}
-                                                    </span>
+                    <h3>Harmonic Movement</h3>
+                     {suggestionContextChord && suggestionContextChord.name ? (
+                        <div className="harmonic-theory-section">
+                            <h4 className="suggestion-header">
+                                From {getAbbreviatedNameFromNotes(suggestionContextChord.notes)}
+                            </h4>
+                            {harmonicTheory ? (
+                                <>
+                                    <p className="harmonic-summary">{harmonicTheory.summary}</p>
+                                    <ul className="harmonic-movements-list">
+                                        {harmonicTheory.movements.map(movement => (
+                                            <li key={movement.name} className="harmonic-movement-item">
+                                                <div className="movement-header">
+                                                    <span className="movement-name">{movement.name}</span>
+                                                    <button 
+                                                        className="add-movement-button"
+                                                        onClick={() => onAddChords(movement.chordsToAdd)}
+                                                    >
+                                                        Add: {movement.chordsToAdd.map(getDisplayChordName).join(', ')}
+                                                    </button>
                                                 </div>
-                                                <button 
-                                                    className="add-suggestion-button" 
-                                                    onClick={() => onAddChords(suggestion.chordsToAdd)}
-                                                    aria-label={`Add suggested chords for ${suggestion.name}`}
-                                                >
-                                                    Add
-                                                </button>
+                                                <p className="movement-description">{movement.description}</p>
                                             </li>
                                         ))}
                                     </ul>
-                                </div>
+                                </>
+                            ) : (
+                                <p className="placeholder-text">This chord is chromatic or outside the current key. Try experimenting!</p>
                             )}
                         </div>
+                    ) : (
+                        <p className="placeholder-text">Select a chord in the grid to see theory and suggestions for harmonic movement.</p>
                     )}
                 </section>
                 <section className="analysis-cell">

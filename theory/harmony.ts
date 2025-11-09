@@ -100,6 +100,65 @@ export const getRomanNumeralForChord = (chordName: string, key: string, mode: st
     return accidental + roman + suffix;
 };
 
+/**
+ * Calculates the Roman numeral for a single note's degree within a key and mode.
+ * The case of the numeral (e.g., 'ii' vs 'II') reflects the quality of the diatonic triad built on that degree.
+ * @param note The note to analyze (e.g., "D").
+ * @param key The tonic of the key (e.g., "C").
+ * @param mode The mode of the key (e.g., "major").
+ * @returns The Roman numeral as a string (e.g., "ii", "bVI", "#IV°") or an empty string if not found.
+ */
+export const getRomanNumeralForNote = (note: string, key: string, mode: string): string => {
+    const scale = Scale.get(`${key} ${mode}`);
+    const diatonicTriads = Mode.triads(mode, key);
+    if (scale.empty || diatonicTriads.length === 0) return '';
+    
+    const simplifiedNote = Note.simplify(note);
+    
+    // Find diatonic degree
+    const degreeIndex = scale.notes.findIndex(scaleNote => Note.simplify(scaleNote) === simplifiedNote);
+
+    if (degreeIndex !== -1) {
+        // It's diatonic, so we can determine the quality and case.
+        const diatonicTriad = diatonicTriads[degreeIndex];
+        const quality = Chord.get(diatonicTriad).quality as string;
+        const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+        let roman = numerals[degreeIndex];
+        if (quality === 'Minor' || quality === 'Diminished') {
+            roman = roman.toLowerCase();
+        }
+        if (quality === 'Diminished') return roman + '°';
+        if (quality === 'Augmented') return roman + '+';
+        return roman;
+    } else {
+        // It's chromatic, calculate from interval.
+        const interval = Interval.distance(key, note);
+        const intervalInfo = Interval.get(interval);
+        if (!intervalInfo.num || intervalInfo.num > 7) return '';
+        
+        const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+        const baseDegreeIndex = intervalInfo.num - 1;
+        let roman = numerals[baseDegreeIndex];
+        
+        const diatonicNote = scale.notes[baseDegreeIndex];
+        const diatonicInterval = Interval.distance(key, diatonicNote);
+        const diatonicSemitones = Interval.semitones(diatonicInterval);
+        const currentSemitones = Interval.semitones(interval);
+
+        if (diatonicSemitones === null || currentSemitones === null) return '';
+
+        let accidental = '';
+        if (currentSemitones > diatonicSemitones) {
+            accidental = '#';
+        } else if (currentSemitones < diatonicSemitones) {
+            accidental = 'b';
+        }
+        // For chromatic notes, we can't infer quality, so we leave it uppercase by convention.
+        return accidental + roman;
+    }
+}
+
+
 export const getDiatonicChords = (tonic: string, modeName: string): Array<{ name: string; roman: string }> => {
     try {
         const chords = Mode.seventhChords(modeName, tonic);

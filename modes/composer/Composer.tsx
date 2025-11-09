@@ -7,7 +7,7 @@ import KeySignature from '../../components/KeySignature/KeySignature';
 import ProgressionAnalyzer from '../../components/ProgressionAnalyzer/ProgressionAnalyzer';
 import CollapsibleSection from '../../components/CollapsibleSection/CollapsibleSection';
 import { Player, SynthType, EnvelopeSettings } from '../../audio/player';
-import { analyzeProgression, getSuggestionsForChord, getPatternSuggestionsForChord } from '../../theory/analysis';
+import { analyzeProgression, getSuggestionsForChord, getHarmonicTheoryForChord } from '../../theory/analysis';
 import { generateRandomProgression, getDiatonicChords } from '../../theory/harmony';
 import './Composer.css';
 import type * as Tone from 'tone';
@@ -84,11 +84,11 @@ const Composer = () => {
         const contextChordName = contextChord && contextChord.notes.length > 0 ? detectChordFromNotes(contextChord.notes) : null;
 
         const categorized = getSuggestionsForChord(contextChordName, musicalKey, musicalMode);
-        const patterns = contextChordName
-            ? getPatternSuggestionsForChord(contextChordName, musicalKey, musicalMode)
-            : [];
+        const harmonicTheory = contextChordName
+            ? getHarmonicTheoryForChord(contextChordName, musicalKey, musicalMode)
+            : null;
             
-        return { categorized, patterns };
+        return { categorized, harmonicTheory };
 
     }, [selectionContext, progression, musicalKey, musicalMode]);
 

@@ -1,6 +1,6 @@
 import { Chord, Scale, Note, Mode } from 'tonal';
 import type { Chord as ChordType } from '../modes/composer/Composer';
-import { getRomanNumeralForChord, COMMON_PATTERNS, getChordFromRomanNumeral, getDiatonicChords, getBorrowedChords, getChordNotesWithOctaves } from './harmony';
+import { getRomanNumeralForChord, getChordFromRomanNumeral, getDiatonicChords, getBorrowedChords } from './harmony';
 import { detectChordFromNotes } from './chords';
 
 /**
@@ -151,44 +151,87 @@ export const getSuggestionsForChord = (contextChordName: string | null, musicalK
     return suggestions;
 }
 
+const HARMONIC_FUNCTION_THEORY: Record<string, { summary: string, movements: { name: string, description: string, to: string[] }[] }> = {
+    'I': {
+        summary: "The tonic (I) is the 'home' chord, providing a sense of stability and rest. Progressions often begin here and seek to return.",
+        movements: [
+            { name: "Move to Subdominant", description: "Moving to IV or ii creates a gentle departure from the tonic, setting up a harmonic journey.", to: ['IV', 'ii'] },
+            { name: "Move to Dominant", description: "Moving to V or vii° builds tension that strongly desires to resolve back home.", to: ['V', 'vii°'] },
+        ]
+    },
+    'V': {
+        summary: "The dominant (V) chord creates the strongest tension, pulling powerfully back to the tonic (I). It's the engine of harmonic motion.",
+        movements: [
+            { name: "Authentic Cadence", description: "The classic V → I resolution. Creates a strong, satisfying sense of finality.", to: ['I'] },
+            { name: "Deceptive Cadence", description: "A V → vi movement. Subverts expectations, creating surprise and often a melancholic feeling.", to: ['vi'] },
+        ]
+    },
+    'IV': {
+        summary: "The subdominant (IV) provides a moderate departure from the tonic, often feeling bright and hopeful. It commonly leads to the dominant (V).",
+        movements: [
+            { name: "Plagal Cadence", description: "A IV → I movement. A gentle, less final resolution than V → I, often called the 'Amen' cadence.", to: ['I'] },
+            { name: "Lead to Dominant", description: "Moving from IV to V is a very common and strong progression that builds tension towards resolution.", to: ['V'] },
+        ]
+    },
+    'ii': {
+        summary: "The supertonic (ii) is a pre-dominant chord, similar to IV but with a slightly softer, more melancholic feel. It leads smoothly to the dominant.",
+        movements: [
+            { name: "Classic Pre-Dominant", description: "The ii → V → I turnaround is one of the most fundamental patterns in jazz and classical music.", to: ['V'] },
+        ]
+    },
+     'vi': {
+        summary: "The submediant (vi) is the relative minor. It feels like a darker, more introspective version of the tonic and can be a point of rest.",
+        movements: [
+            { name: "Move to Pre-Dominant", description: "From the submediant, moving to ii or IV continues the harmonic journey away from the tonic.", to: ['ii', 'IV'] },
+        ]
+    },
+     'i': {
+        summary: "The minor tonic (i) is the 'home' chord in a minor key, providing a sense of stability, albeit with a melancholic or dramatic mood.",
+        movements: [
+            { name: "Move to Subdominant", description: "Moving to iv or ii° creates a gentle departure, continuing the minor key's mood.", to: ['iv', 'ii°'] },
+            { name: "Move to Dominant", description: "Moving to V or VII builds tension. The major V chord has a particularly strong pull back to i.", to: ['V', 'VII'] },
+        ]
+    },
+    'iv': {
+        summary: "The minor subdominant (iv) functions similarly to its major counterpart, leading naturally to the dominant.",
+        movements: [
+            { name: "Lead to Dominant", description: "The iv → V → i progression is a powerful and common pattern in minor keys.", to: ['V'] },
+        ]
+    },
+};
+
+
 /**
- * Finds common patterns that start with a given chord and returns the rest of the pattern.
- * @param contextChordName The chord to start the pattern from.
+ * Provides music theory context for a given chord, including its function and possible next movements.
+ * @param contextChordName The chord to analyze.
  * @param musicalKey The key of the progression.
  * @param musicalMode The mode of the progression.
- * @returns An array of pattern suggestions, each with a name and the remaining chords to add.
+ * @returns An object with a summary and a list of described movements, or null.
  */
-export const getPatternSuggestionsForChord = (contextChordName: string, musicalKey: string, musicalMode: string): { name: string, chordsToAdd: string[] }[] => {
+export const getHarmonicTheoryForChord = (contextChordName: string, musicalKey: string, musicalMode: string): { summary: string, movements: { name: string, description: string, chordsToAdd: string[] }[] } | null => {
     const contextRoman = getRomanNumeralForChord(contextChordName, musicalKey, musicalMode);
-    if (!contextRoman) return [];
-
-    const baseRomanMatch = contextRoman.match(/^(#|b)?(I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)/);
-    if (!baseRomanMatch) return [];
+    if (!contextRoman) return null;
     
-    // Get the simple roman numeral (e.g., 'ii' from 'iim7') for pattern matching
-    const simpleRoman = baseRomanMatch[2];
+    // Simplify roman numeral for matching (e.g., 'V7' -> 'V', 'iim7' -> 'ii')
+    const simpleRomanMatch = contextRoman.match(/^(#|b)?(I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)/);
+    if (!simpleRomanMatch) return null;
+    const simpleRoman = simpleRomanMatch[2]; // e.g. 'V' or 'ii'
+    
+    // Find theory based on the simplified numeral (e.g., 'ii' for 'iim7')
+    const theory = HARMONIC_FUNCTION_THEORY[simpleRoman];
+    if (!theory) return null;
+    
+    const resolvedMovements = theory.movements.map(movement => {
+        const chordsToAdd = movement.to
+            .map(numeral => getChordFromRomanNumeral(numeral, musicalKey, musicalMode))
+            .filter((c): c is string => c !== null);
+        return { ...movement, chordsToAdd };
+    }).filter(m => m.chordsToAdd.length > 0);
 
-    const suggestions: { name: string, chordsToAdd: string[] }[] = [];
-
-    for (const [patternName, patternSequence] of Object.entries(COMMON_PATTERNS)) {
-        const index = patternSequence.indexOf(simpleRoman);
-        // Find patterns where the context chord is the first element
-        if (index === 0 && patternSequence.length > 1) {
-            const remainingNumerals = patternSequence.slice(1);
-            const chordsToAdd = remainingNumerals
-                .map(numeral => getChordFromRomanNumeral(numeral, musicalKey, musicalMode))
-                .filter((c): c is string => c !== null); // Ensure chord conversion was successful
-
-            if (chordsToAdd.length === remainingNumerals.length) { // Check if all numerals were converted
-                suggestions.push({
-                    name: `Complete '${patternName}'`,
-                    chordsToAdd: chordsToAdd
-                });
-            }
-        }
-    }
-
-    return suggestions;
+    return {
+        summary: theory.summary,
+        movements: resolvedMovements
+    };
 };
 
 /**
@@ -209,41 +252,6 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
         }
         return acc;
     }, {} as Record<string, number>);
-
-    // Pattern Detection
-    const romanProgression = validChordNames.map(name => getRomanNumeralForChord(name, musicalKey, musicalMode));
-    const detectedPatterns: { name: string; chords: string[] }[] = [];
-    const uniquePatterns = new Set<string>(); // To avoid duplicate pattern messages
-
-    if (validChords.length >= 2) {
-        for (let i = 0; i <= romanProgression.length - 2; i++) { // Check every possible slice
-            for (const [patternName, patternSequence] of Object.entries(COMMON_PATTERNS)) {
-                if (i + patternSequence.length > romanProgression.length) continue; // Slice would be out of bounds
-
-                const romanSlice = romanProgression.slice(i, i + patternSequence.length);
-                const simplifiedSlice = romanSlice.map(roman => {
-                    if (!roman) return null;
-                    const baseRomanMatch = roman.match(/^(I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)/);
-                    return baseRomanMatch ? baseRomanMatch[0] : null;
-                });
-
-                if (simplifiedSlice.some(r => r === null)) continue;
-
-                if (JSON.stringify(simplifiedSlice) === JSON.stringify(patternSequence)) {
-                    const chordsInPattern = validChordNames.slice(i, i + patternSequence.length);
-                    const patternKey = `${patternName}-${chordsInPattern.join(',')}`;
-                    
-                    if (!uniquePatterns.has(patternKey)) {
-                        detectedPatterns.push({
-                            name: patternName,
-                            chords: chordsInPattern,
-                        });
-                        uniquePatterns.add(patternKey);
-                    }
-                }
-            }
-        }
-    }
 
     // Richness Analysis
     let totalComplexity = 0;
@@ -306,6 +314,10 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
         diatonicChords,
         borrowedChords,
     };
+
+    // Note: The 'detectedPatterns' logic has been removed as per the design change.
+    // The new approach focuses on contextual theory rather than retrospective pattern matching.
+    const detectedPatterns: any[] = []; 
 
     return { chordFrequency, detectedPatterns, richnessAnalysis, hints };
 };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { rootNotes, chordTypes, getDisplayChordName, getChordNotesWithOctaves, detectChordFromNotes, getAbbreviatedNameFromNotes, getNextInversion, getPreviousInversion, getPermutedVoicing } from '../../theory/chords';
+import { rootNotes, chordTypes, getChordNotesWithOctaves, detectChordFromNotes, getAbbreviatedNameFromNotes } from '../../theory/chords';
+import { getDiatonicChords, getBorrowedChords, getRomanNumeralForNote } from '../../theory/harmony';
 import type { Chord } from '../../modes/composer/Composer';
 import type { Player } from '../../audio/player';
 import { Chord as TonalChord, Note } from 'tonal';
@@ -92,22 +93,6 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
         });
     };
 
-    const handleInvert = (direction: 'up' | 'down') => {
-        if (isRest || selectedNotes.length < 2) return;
-        const newNotes = direction === 'up' 
-            ? getNextInversion(selectedNotes) 
-            : getPreviousInversion(selectedNotes);
-        setSelectedNotes(newNotes);
-        player?.playOneShot(newNotes);
-    };
-
-    const handlePermute = () => {
-        if (isRest || selectedNotes.length < 3) return;
-        const newNotes = getPermutedVoicing(selectedNotes);
-        setSelectedNotes(newNotes);
-        player?.playOneShot(newNotes);
-    };
-
     useEffect(() => {
         // This effect runs when root, type, or octave changes to update notes
         updateNotesFromControls();
@@ -124,6 +109,37 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
         player?.playOneShot(newNotes);
     };
 
+    const keyContext = useMemo(() => {
+        const diatonicChords = getDiatonicChords(musicalKey, musicalMode);
+        const borrowedChords = getBorrowedChords(musicalKey, musicalMode);
+        
+        const diatonicNoteSet = new Set<string>();
+        diatonicChords.forEach(c => {
+            const tonic = TonalChord.get(c.name).tonic;
+            if (tonic) diatonicNoteSet.add(tonic);
+        });
+    
+        const borrowedNoteSet = new Set<string>();
+        borrowedChords.forEach(c => {
+            const tonic = TonalChord.get(c.name).tonic;
+            if (tonic) borrowedNoteSet.add(tonic);
+        });
+    
+        return { diatonicNoteSet, borrowedNoteSet };
+    }, [musicalKey, musicalMode]);
+
+    const typeContext = useMemo(() => {
+        if (!selectedRoot) return { diatonicType: null, borrowedType: null };
+
+        const diatonicChordForRoot = getDiatonicChords(musicalKey, musicalMode).find(c => TonalChord.get(c.name).tonic === selectedRoot);
+        const borrowedChordForRoot = getBorrowedChords(musicalKey, musicalMode).find(c => TonalChord.get(c.name).tonic === selectedRoot);
+
+        return {
+            diatonicType: diatonicChordForRoot ? TonalChord.get(diatonicChordForRoot.name).type : null,
+            borrowedType: borrowedChordForRoot ? TonalChord.get(borrowedChordForRoot.name).type : null,
+        }
+    }, [selectedRoot, musicalKey, musicalMode]);
+
     if (!isOpen) return null;
 
     const displaySelection = getAbbreviatedNameFromNotes(selectedNotes);
@@ -137,7 +153,11 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
                 <header className="modal-header">
-                    <h2>{chord?.notes ? 'Edit Chord' : 'Add Chord'}</h2>
+                    <div className="modal-header-top-row">
+                        <button onClick={onClose} className="cancel-button header-action-button">Cancel</button>
+                        <h2>{chord?.notes ? 'Edit Chord' : 'Add Chord'}</h2>
+                        <button onClick={handleSave} className="save-button header-action-button">Save</button>
+                    </div>
                     <div className="current-selection-display">
                         {displaySelection}
                         {' for '} 
@@ -175,51 +195,78 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
                                         ))}
                                     </div>
                                 </div>
-                                <div className={`voicing-selector ${isRest ? 'disabled' : ''}`}>
-                                    <label>Voicing:</label>
-                                    <div className="voicing-buttons">
-                                        <button onClick={() => handleInvert('down')} aria-label="Previous Inversion">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
-                                        </button>
-                                        <button onClick={handlePermute} aria-label="Random Inversion">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.4c1.3 0 2.5.6 3.3 1.7l6.1 8.6c.7 1.1 2 1.7 3.3 1.7H22"/><path d="m18 22-4-4 4-4"/></svg>
-                                        </button>
-                                        <button onClick={() => handleInvert('up')} aria-label="Next Inversion">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className={`chromatic-controls ${isRest ? 'disabled' : ''}`}>
-                                     <div className="modal-subsection">
-                                        <h4>Root Note</h4>
-                                        <div className="button-grid">
-                                            {rootNotes.map(note => (
-                                                <button key={note} className={selectedRoot === note ? 'active' : ''} onClick={() => setSelectedRoot(note)}>
-                                                    {note}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="modal-subsection">
-                                        <h4>Chord Type</h4>
-                                        <div className="button-grid">
-                                            {chordTypes.map(type => (
-                                                <button 
-                                                    key={type} 
-                                                    className={selectedType === type ? 'active' : ''}
-                                                    onClick={() => setSelectedType(type)}>
-                                                    {type}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
+
+                            <CollapsibleSection title="Customization" defaultOpen>
+                                <div className={`customization-controls ${isRest ? 'disabled' : ''}`}>
+                                    <div className="chromatic-controls">
+                                        <div className="modal-subsection">
+                                            <h4>Root Note</h4>
+                                            <div className="button-grid">
+                                                {rootNotes.map(note => {
+                                                    const isDiatonic = keyContext.diatonicNoteSet.has(note);
+                                                    const isBorrowed = keyContext.borrowedNoteSet.has(note);
+                                                    const romanNumeral = getRomanNumeralForNote(note, musicalKey, musicalMode);
+                                                    
+                                                    const classNames = [
+                                                        selectedRoot === note ? 'active' : '',
+                                                        isDiatonic ? 'diatonic' : '',
+                                                        isBorrowed ? 'borrowed' : ''
+                                                    ].filter(Boolean).join(' ');
+
+                                                    return (
+                                                        <button key={note} className={classNames} onClick={() => setSelectedRoot(note)}>
+                                                            {note}
+                                                            <span className="roman-numeral">{romanNumeral}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                        <div className="modal-subsection">
+                                            <h4>Chord Type</h4>
+                                            <div className="button-grid chord-type-grid">
+                                                {chordTypes.map(type => {
+                                                    const isDiatonic = typeContext.diatonicType === type;
+                                                    const isBorrowed = typeContext.borrowedType === type;
+
+                                                    const classNames = [
+                                                        selectedType === type ? 'active' : '',
+                                                        isDiatonic ? 'diatonic' : '',
+                                                        isBorrowed ? 'borrowed' : ''
+                                                    ].filter(Boolean).join(' ');
+
+                                                    const qualities = ['maj', 'm', 'dim', 'aug', 'sus'];
+                                                    const matchedQuality = qualities.find(q => type.startsWith(q));
+                                                    let quality = '';
+                                                    let ornament = '';
+                                                    if (matchedQuality) {
+                                                        quality = matchedQuality;
+                                                        ornament = type.substring(quality.length);
+                                                    } else {
+                                                        ornament = type;
+                                                    }
+
+                                                    return (
+                                                        <button 
+                                                            key={type} 
+                                                            className={classNames}
+                                                            onClick={() => setSelectedType(type)}>
+                                                            {quality}
+                                                            {ornament && <span className="chord-type-ornament">{ornament}</span>}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CollapsibleSection>
                         </div>
                     </div>
 
                     {showVisualization && (
-                         <CollapsibleSection title="Note Visualization" defaultOpen>
+                         <CollapsibleSection title="Note Visualization">
                             <div className="chord-visualization-container">
                                 {prevChordIsValid && (
                                     <ChordTransitionVisualizer
@@ -256,12 +303,6 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
                             </div>
                         </CollapsibleSection>
                     )}
-                </div>
-
-
-                <div className="modal-actions">
-                    <button onClick={onClose} className="cancel-button">Cancel</button>
-                    <button onClick={handleSave} className="save-button">Save</button>
                 </div>
             </div>
         </div>

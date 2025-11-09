@@ -28,17 +28,27 @@
 }
 
 .modal-header {
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid #333;
     flex-shrink: 0;
 }
 
+.modal-header-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
 .modal-header h2 {
-    margin: 0;
+    margin: 0 1rem;
     background: linear-gradient(90deg, #ff8a00, #e52e71);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    text-align: center;
 }
 
 .current-selection-display {
@@ -48,6 +58,7 @@
     padding: 0.5rem 1rem;
     border-radius: 6px;
     font-size: 1.1rem;
+    text-align: center;
 }
 
 /* New wrapper for sections */
@@ -63,26 +74,25 @@
     gap: 1.5rem;
 }
 
-.duration-selector, .octave-selector, .voicing-selector {
+.duration-selector, .octave-selector {
     display: flex;
     align-items: center;
     gap: 0.75rem;
     flex-wrap: wrap;
 }
 
-.duration-selector label, .octave-selector label, .voicing-selector label {
+.duration-selector label, .octave-selector label {
     color: #a0a0a0;
     min-width: 60px;
 }
 
-.duration-buttons, .octave-buttons, .voicing-buttons {
+.duration-buttons, .octave-buttons {
     display: flex;
     gap: 0.5rem;
 }
 
 .duration-buttons button, 
-.octave-buttons button,
-.voicing-buttons button {
+.octave-buttons button {
     background-color: #333;
     border: 1px solid #444;
     color: #fff;
@@ -99,7 +109,7 @@
     justify-content: center;
 }
 
-.octave-selector.disabled, .voicing-selector.disabled {
+.octave-selector.disabled {
     opacity: 0.4;
     pointer-events: none;
 }
@@ -127,48 +137,70 @@
 
 .button-grid button {
     background-color: #333;
-    border: 1px solid #444;
+    border: 2px solid transparent; /* Changed for context coloring */
     color: #fff;
-    padding: 0.75rem 0.5rem;
+    padding: calc(0.75rem - 2px) calc(0.5rem - 2px); /* Adjust padding for border */
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.1s ease, border-color 0.3s ease;
     font-size: 1rem;
+    font-weight: 700;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
     gap: 0.2rem;
-    min-height: 50px; /* Adjusted height */
+    min-height: 50px;
 }
 
-.button-grid button .roman-numeral {
+.roman-numeral {
     font-size: 0.8rem;
     color: #a0a0a0;
+    font-weight: 400;
 }
 
 
-.button-grid button:hover,
-.duration-buttons button:hover,
-.octave-buttons button:hover,
-.voicing-buttons button:hover {
+.button-grid button:hover {
     background-color: #444;
 }
 
-.button-grid button.active,
-.duration-buttons button.active,
-.octave-buttons button.active {
+.button-grid button.diatonic {
+    border-color: #ff8a00;
+}
+
+.button-grid button.borrowed {
+    border-color: #4facfe;
+}
+
+
+.button-grid button.active {
     background: linear-gradient(90deg, #ff8a00, #e52e71);
     color: #fff;
     font-weight: 700;
     transform: scale(1.05);
-    border: 1px solid transparent;
+    border-color: transparent; /* Active state overrides context border */
 }
 
-.voicing-buttons button:active {
-    transform: scale(0.95);
+/* Styles for chord type ornaments */
+.button-grid.chord-type-grid button {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 2px;
 }
+
+.button-grid button .chord-type-ornament {
+    color: #ffbd6a; /* Gold/orange for ornaments */
+    font-weight: 400;
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+
+.button-grid button.active .chord-type-ornament {
+    color: #fff;
+    opacity: 0.8;
+}
+
 
 .rest-button {
     width: 100%;
@@ -201,10 +233,17 @@
     transition: opacity 0.3s ease;
 }
 
-.chromatic-controls.disabled {
+.customization-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.customization-controls.disabled {
     opacity: 0.4;
     pointer-events: none;
 }
+
 
 .pattern-list {
     list-style: none;
@@ -259,16 +298,7 @@
 }
 
 
-.modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #333;
-    flex-shrink: 0;
-}
-
-.modal-actions button {
+.header-action-button {
     padding: 0.75rem 1.5rem;
     border-radius: 6px;
     border: none;
@@ -276,12 +306,12 @@
     font-weight: 700;
 }
 
-.cancel-button {
+.cancel-button.header-action-button {
     background-color: #333;
     color: #fff;
 }
 
-.save-button {
+.save-button.header-action-button {
     background: linear-gradient(90deg, #ff8a00, #e52e71);
     color: #fff;
 }
@@ -363,6 +393,14 @@
     margin: 0;
     font-size: 1.1rem;
     font-weight: 700;
+}
+
+.static-section > .section-content-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: none; /* Override any inherited border */
 }
 
 
