@@ -96,14 +96,17 @@
 .chord-card-buttons-top {
     position: absolute;
     top: 8px;
+    left: 8px;
     right: 8px;
     display: flex;
-    gap: 0.5rem;
+    justify-content: space-between; /* Pushes children to opposite ends */
     z-index: 10;
+    pointer-events: none; /* Allow clicks to pass through to the card itself */
 }
 
 .remove-chord-button,
 .edit-chord-button {
+    pointer-events: auto; /* Re-enable pointer events for buttons */
     background-color: rgba(0, 0, 0, 0.5);
     border: none;
     color: #fff;
