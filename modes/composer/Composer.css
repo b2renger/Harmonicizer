@@ -43,6 +43,36 @@
     flex-shrink: 0;
 }
 
+/* New wrapper for main controls */
+.main-controls-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    padding: 1rem 1.5rem;
+    background-color: #1e1e1e;
+    border-radius: 12px;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.main-controls-left {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.analysis-toggle-button svg {
+    transform: rotate(90deg);
+}
+
+@media (max-width: 768px) {
+    .main-controls-wrapper {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
 
 @keyframes fadeIn {
     from {

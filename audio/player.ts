@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 import { Chord as TonalChord } from 'tonal';
 import type { Chord } from '../modes/composer/Composer';
+import { getChordNotesWithOctaves } from '../theory/chords';
 
 export type SynthType = 'FMSynth' | 'AMSynth' | 'Synth' | 'Rhodes';
 
@@ -90,10 +91,7 @@ export class Player {
             const eventStart = `${bars}:${beats}:0`;
             const chordDurationInBeats = chord.duration;
             
-            const chordData = TonalChord.get(chord.name);
-            const notes = chordData && chordData.notes && chordData.notes.length > 0
-                ? chordData.notes.map(note => `${note}4`) // Play in 4th octave
-                : [];
+            const notes = getChordNotesWithOctaves(chord.name, chord.octave);
 
             if (chord.name === 'Rest' || notes.length === 0) {
                 // For rests or chords with no notes, simply advance time

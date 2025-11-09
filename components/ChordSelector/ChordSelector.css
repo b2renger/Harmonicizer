@@ -14,41 +14,110 @@
 
 .modal-content {
     background-color: #1e1e1e;
-    padding: 2rem;
+    padding: 1rem 2rem 2rem 2rem;
     border-radius: 12px;
     width: 90%;
-    max-width: 600px;
+    max-width: 700px;
     max-height: 90vh;
     overflow-y: auto;
     animation: slideIn 0.3s ease-out;
     border: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem; /* Gap between header, sections, and actions */
 }
 
-.modal-content h2 {
-    margin-top: 0;
+.modal-header {
     text-align: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+}
+
+.modal-header h2 {
+    margin: 0;
     background: linear-gradient(90deg, #ff8a00, #e52e71);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
-.modal-section {
-    margin-bottom: 1.5rem;
+.current-selection-display {
+    margin-top: 0.5rem;
+    color: #a0a0a0;
+    background-color: #121212;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 1.1rem;
 }
 
-.modal-section h3 {
-    margin-bottom: 0.75rem;
+/* New wrapper for sections */
+.modal-sections-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.basics-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.duration-selector, .octave-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.duration-selector label, .octave-selector label {
     color: #a0a0a0;
+    min-width: 60px;
+}
+
+.duration-buttons, .octave-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.duration-buttons button, .octave-buttons button {
+    background-color: #333;
+    border: 1px solid #444;
+    color: #fff;
+    padding: 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease, border-color 0.3s ease;
     font-size: 1rem;
+    line-height: 1;
+    min-width: 40px;
+    text-align: center;
+}
+
+.octave-selector.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.modal-subsection {
+    margin-bottom: 1.5rem;
+}
+.modal-subsection:last-child {
+    margin-bottom: 0;
+}
+
+.modal-subsection h4 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    color: #888;
+    font-size: 0.9rem;
     font-weight: 400;
-    border-bottom: 1px solid #333;
-    padding-bottom: 0.5rem;
 }
 
 .button-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 0.75rem;
 }
 
 .button-grid button {
@@ -58,40 +127,42 @@
     padding: 0.75rem 0.5rem;
     border-radius: 6px;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    transition: background-color 0.2s ease, transform 0.1s ease, border-color 0.3s ease;
+    font-size: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 0.2rem;
+    min-height: 50px; /* Adjusted height */
 }
 
-.button-grid button:hover {
+.button-grid button .roman-numeral {
+    font-size: 0.8rem;
+    color: #a0a0a0;
+}
+
+
+.button-grid button:hover,
+.duration-buttons button:hover,
+.octave-buttons button:hover {
     background-color: #444;
 }
 
-.button-grid button.active {
+.button-grid button.active,
+.duration-buttons button.active,
+.octave-buttons button.active {
     background: linear-gradient(90deg, #ff8a00, #e52e71);
     color: #fff;
     font-weight: 700;
     transform: scale(1.05);
-    border: none;
+    border: 1px solid transparent;
 }
-
-/* Consonance Highlighting */
-.button-grid button.consonant-1 {
-    border-color: hsla(210, 100%, 60%, 0.6); /* Blueish */
-}
-.button-grid button.consonant-2 {
-    border-color: hsla(180, 100%, 50%, 0.7); /* Cyan */
-}
-.button-grid button.consonant-3 {
-    border-color: hsla(50, 100%, 50%, 0.8); /* Yellow */
-}
-.button-grid button.consonant-4 {
-    border-color: hsla(30, 100%, 50%, 1); /* Orange */
-    box-shadow: 0 0 8px hsla(30, 100%, 50%, 0.5);
-}
-
 
 .rest-button {
-    width: 100%;
-    padding: 1rem;
+    align-self: flex-start;
+    padding: 0.75rem 1.5rem;
     font-size: 1rem;
     background-color: #333;
     color: #fff;
@@ -112,11 +183,78 @@
     border: 1px solid #ff8a00;
 }
 
+.chromatic-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    transition: opacity 0.3s ease;
+}
+
+.chromatic-controls.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.pattern-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.pattern-item {
+    background-color: #2a2a2a;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pattern-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.pattern-name {
+    font-weight: 700;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.pattern-chords {
+    font-family: monospace;
+    color: #ffbd6a;
+    font-size: 0.9rem;
+}
+
+.add-pattern-button {
+    background-color: #333;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.add-pattern-button:hover {
+    background-color: #4facfe;
+    color: #121212;
+    border-color: #4facfe;
+}
+
+
 .modal-actions {
     display: flex;
     justify-content: flex-end;
     gap: 1rem;
-    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #333;
+    flex-shrink: 0;
 }
 
 .modal-actions button {
@@ -145,5 +283,43 @@
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+.static-section {
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    border: 1px solid #333;
+    /* Content is always visible, no overflow hidden needed */
+}
+
+.section-header-static {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: transparent;
+    border: none;
+    color: #fff;
+    text-align: left;
+    font-family: inherit;
+    border-bottom: 1px solid #333; /* Separator like collapsible header */
+}
+
+.section-header-static h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+
+@media (max-width: 600px) {
+    .chromatic-controls {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    .modal-content {
+        padding: 1rem;
     }
 }

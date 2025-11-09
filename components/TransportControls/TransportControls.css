@@ -4,9 +4,7 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 1.5rem;
-    padding: 1rem 1.5rem;
-    background-color: #1e1e1e;
-    border-radius: 12px;
+    /* Removed padding and background-color, now handled by wrapper */
 }
 
 .playback-controls {
@@ -45,13 +43,13 @@
     color: #ff8a00;
 }
 
-.tempo-control { /* Removed .synth-selector from this rule */
+.tempo-control { 
     display: flex;
     align-items: center;
     gap: 0.75rem;
 }
 
-.tempo-control label { /* Removed .synth-selector label from this rule */
+.tempo-control label { 
     font-weight: 400;
 }
 
@@ -59,7 +57,6 @@
     width: 150px;
 }
 
-/* Removed specific .synth-selector styles here as the element is no longer in this component */
 
 @media (max-width: 768px) {
     .transport-controls {

@@ -1,45 +1,50 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import TransportControls from '../../components/TransportControls/TransportControls';
 import ChordGrid from '../../components/ChordGrid/ChordGrid';
 import ChordSelector from '../../components/ChordSelector/ChordSelector';
 import GraphicalEnvelopeEditor from '../../components/GraphicalEnvelopeEditor/GraphicalEnvelopeEditor';
+import KeySignature from '../../components/KeySignature/KeySignature';
+import ProgressionAnalyzer from '../../components/ProgressionAnalyzer/ProgressionAnalyzer';
 import { Player, SynthType, EnvelopeSettings } from '../../audio/player';
+import { analyzeProgression } from '../../theory/analysis';
 import './Composer.css';
-// Fix: Add a type import for Tone to resolve the 'Cannot find namespace Tone' error for Tone.Unit.Time.
 import type * as Tone from 'tone';
+import { rootNotes, modes, invertChord, randomlyInvertChord } from '../../theory/chords';
 
 export interface Chord {
     id: string;
     name: string;
     duration: number; // in beats
+    octave: number;
 }
 
 const Composer = () => {
     console.log('Composer component rendering...');
     const [progression, setProgression] = useState<Chord[]>([
-        { id: crypto.randomUUID(), name: 'Cmaj7', duration: 4 },
-        { id: crypto.randomUUID(), name: 'Am7', duration: 4 },
-        { id: crypto.randomUUID(), name: 'Dm7', duration: 4 },
-        { id: crypto.randomUUID(), name: 'G7', duration: 4 },
+        { id: crypto.randomUUID(), name: 'Cmaj7', duration: 4, octave: 4 },
+        { id: crypto.randomUUID(), name: 'Am7', duration: 4, octave: 4 },
+        { id: crypto.randomUUID(), name: 'Dm7', duration: 4, octave: 4 },
+        { id: crypto.randomUUID(), name: 'G7', duration: 4, octave: 4 },
     ]);
 
     const [isPlaying, setIsPlaying] = useState(false);
     const [tempo, setTempo] = useState(120);
-    const [synthType, setSynthType] = useState<SynthType>('Rhodes'); // Changed default synth to Rhodes
+    const [synthType, setSynthType] = useState<SynthType>('Rhodes');
     const [isLooping, setIsLooping] = useState(true);
-    // Adjusted default envelope settings for a less percussive Rhodes sound
     const [envelope, setEnvelope] = useState<EnvelopeSettings>({ attack: 0.2, decay: 0.6, sustain: 0.7, release: 1.5 });
     
-    // New states for master gain and reverb
     const [masterGain, setMasterGain] = useState(0.8);
     const [reverbWet, setReverbWet] = useState(0.2);
     const [reverbTime, setReverbTime] = useState(1.5);
 
-    // New states for arpeggiator
     const [isArpeggiatorActive, setIsArpeggiatorActive] = useState(false);
     const [arpeggiatorTiming, setArpeggiatorTiming] = useState<Tone.Unit.Time>('16n');
     const [arpeggiatorRepeats, setArpeggiatorRepeats] = useState<number>(Infinity);
 
+    const [musicalKey, setMusicalKey] = useState('C');
+    const [musicalMode, setMusicalMode] = useState('major');
+    
+    const [isAnalyzerVisible, setIsAnalyzerVisible] = useState(false);
 
     const [currentlyPlayingChordId, setCurrentlyPlayingChordId] = useState<string | null>(null);
 
@@ -48,6 +53,10 @@ const Composer = () => {
     const [contextualChord, setContextualChord] = useState<Chord | null>(null);
 
     const player = useRef<Player | null>(null);
+
+    const analysisResults = useMemo(() => {
+        return analyzeProgression(progression, musicalKey, musicalMode);
+    }, [progression, musicalKey, musicalMode]);
 
     useEffect(() => {
         console.log('Composer initial useEffect running...');
@@ -78,7 +87,6 @@ const Composer = () => {
      useEffect(() => {
         if(player.current) {
             player.current.setTempo(tempo);
-            // We need to reset progression for duration calculation to be correct
             player.current.setProgression(progression);
         }
     }, [tempo, progression]);
@@ -88,7 +96,6 @@ const Composer = () => {
         player.current?.setEnvelope(envelope);
     }, [envelope]);
 
-    // New useEffects for gain and reverb
     useEffect(() => {
         player.current?.setGain(masterGain);
     }, [masterGain]);
@@ -101,16 +108,14 @@ const Composer = () => {
         player.current?.setReverbTime(reverbTime);
     }, [reverbTime]);
 
-    // Synth type useEffect remains, but the prop is passed to GraphicalEnvelopeEditor
     useEffect(() => {
         player.current?.setSynth(synthType);
     }, [synthType]);
 
-    // New useEffects for arpeggiator
     useEffect(() => {
         if (player.current) {
             player.current.setArpeggiator(isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats);
-            player.current.setProgression(progression); // Rebuild Tone.Part with new arpeggiator settings
+            player.current.setProgression(progression);
         }
     }, [isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, progression]);
 
@@ -138,7 +143,6 @@ const Composer = () => {
 
     const handleSynthChange = useCallback((newSynth: SynthType) => {
         setSynthType(newSynth);
-        // Player update is handled by the useEffect for synthType
     }, []);
 
     const handleLoopToggle = useCallback(() => {
@@ -162,7 +166,6 @@ const Composer = () => {
         if (currentlyPlayingChordId === idToRemove) {
             setCurrentlyPlayingChordId(null);
         }
-        // If the last chord is removed and playing, stop the player
         if (progression.length === 1 && progression[0].id === idToRemove && isPlaying) {
             player.current?.stop();
             setIsPlaying(false);
@@ -170,20 +173,18 @@ const Composer = () => {
     }, [currentlyPlayingChordId, isPlaying, progression.length]);
 
     const handleCardClick = useCallback((chord: Partial<Chord> | null) => {
-        setEditingChord(chord || { id: crypto.randomUUID() });
+        setEditingChord(chord || { id: crypto.randomUUID(), octave: 4 });
 
         let contextChord: Chord | null = null;
-        if (chord && chord.id) { // Editing an existing chord
+        if (chord && chord.id) {
             const chordIndex = progression.findIndex(c => c.id === chord.id);
-            // Find the closest previous non-rest chord
             for (let i = chordIndex - 1; i >= 0; i--) {
                 if (progression[i].name !== 'Rest') {
                     contextChord = progression[i];
                     break;
                 }
             }
-        } else { // Adding a new chord
-            // Find the last non-rest chord in the whole progression
+        } else {
             for (let i = progression.length - 1; i >= 0; i--) {
                 if (progression[i].name !== 'Rest') {
                     contextChord = progression[i];
@@ -215,11 +216,60 @@ const Composer = () => {
         handleCloseModal();
     }, [editingChord, handleCloseModal]);
 
+    const handleReorderProgression = useCallback((newProgression: Chord[]) => {
+        setProgression(newProgression);
+    }, []);
+
+    const handleAddPattern = useCallback((patternChords: string[]) => {
+        const newChords = patternChords.map(name => ({ id: crypto.randomUUID(), name, duration: 4, octave: 4 }));
+        
+        setProgression(currentProgression => {
+            // If we were editing a chord, replace it. Otherwise, append.
+            const editingIndex = currentProgression.findIndex(c => c.id === editingChord?.id);
+            if (editingIndex > -1) {
+                const newProgression = [...currentProgression];
+                newProgression.splice(editingIndex, 1, ...newChords);
+                return newProgression;
+            } else {
+                return [...currentProgression, ...newChords];
+            }
+        });
+        handleCloseModal(); // Close the modal after adding the pattern
+    }, [editingChord, handleCloseModal]);
+
+    const handleInvertChord = useCallback((chordId: string, direction: 'up' | 'down') => {
+        setProgression(currentProgression => {
+            const chordIndex = currentProgression.findIndex(c => c.id === chordId);
+            if (chordIndex === -1) return currentProgression;
+            
+            const currentChord = currentProgression[chordIndex];
+            const newName = invertChord(currentChord.name, direction);
+
+            const newProgression = [...currentProgression];
+            newProgression[chordIndex] = { ...currentChord, name: newName };
+            return newProgression;
+        });
+    }, []);
+
+    const handlePermuteChord = useCallback((chordId: string) => {
+        setProgression(currentProgression => {
+            const chordIndex = currentProgression.findIndex(c => c.id === chordId);
+            if (chordIndex === -1) return currentProgression;
+
+            const currentChord = currentProgression[chordIndex];
+            const newName = randomlyInvertChord(currentChord.name);
+
+            const newProgression = [...currentProgression];
+            newProgression[chordIndex] = { ...currentChord, name: newName };
+            return newProgression;
+        });
+    }, []);
+
     return (
         <div className="composer">
             <header className="composer-header">
-                <h1>Composer</h1>
-                <p>Build your chord progression.</p>
+                <h1>Harmonicizer</h1>
+                <p>Build and explore your chord progressions.</p>
             </header>
             <div className="chord-grid-wrapper">
                 <ChordGrid 
@@ -227,20 +277,50 @@ const Composer = () => {
                     onCardClick={handleCardClick}
                     currentlyPlayingChordId={currentlyPlayingChordId}
                     onRemoveChord={handleRemoveChord}
+                    onReorderProgression={handleReorderProgression}
+                    onInvertChord={handleInvertChord}
+                    onPermuteChord={handlePermuteChord}
                 />
             </div>
             <div className="controls-container">
-                <TransportControls 
-                    isPlaying={isPlaying}
-                    tempo={tempo}
-                    // Removed synthType={synthType}
-                    // Removed onSynthChange={handleSynthChange}
-                    isLooping={isLooping}
-                    onPlayToggle={handlePlayToggle}
-                    onTempoChange={handleTempoChange}
-                    onLoopToggle={handleLoopToggle}
-                    onClearProgression={handleClearProgression}
-                />
+                <div className="main-controls-wrapper">
+                    <div className="main-controls-left">
+                        <TransportControls 
+                            isPlaying={isPlaying}
+                            tempo={tempo}
+                            isLooping={isLooping}
+                            onPlayToggle={handlePlayToggle}
+                            onTempoChange={handleTempoChange}
+                            onLoopToggle={handleLoopToggle}
+                            onClearProgression={handleClearProgression}
+                        />
+                        <KeySignature
+                            currentKey={musicalKey}
+                            currentMode={musicalMode}
+                            onKeyChange={setMusicalKey}
+                            onModeChange={setMusicalMode}
+                            rootNotes={rootNotes}
+                            modes={modes}
+                        />
+                    </div>
+                     <button 
+                        className={`control-button analysis-toggle-button ${isAnalyzerVisible ? 'active' : ''}`} 
+                        onClick={() => setIsAnalyzerVisible(prev => !prev)}
+                        aria-label="Toggle Progression Analyzer"
+                        aria-expanded={isAnalyzerVisible}
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-5h2v5zm4 0h-2v-3h2v3zm0-5h-2v-2h2v2zm4 5h-2V7h2v10z"/>
+                        </svg>
+                    </button>
+                </div>
+
+                {isAnalyzerVisible && (
+                    <ProgressionAnalyzer 
+                        analysis={analysisResults} 
+                    />
+                )}
+
                 <GraphicalEnvelopeEditor 
                     envelope={envelope} 
                     onEnvelopeChange={handleEnvelopeChange} 
@@ -250,8 +330,8 @@ const Composer = () => {
                     onReverbWetChange={setReverbWet}
                     reverbTime={reverbTime}
                     onReverbTimeChange={setReverbTime}
-                    synthType={synthType} // Added synthType
-                    onSynthChange={handleSynthChange} // Added onSynthChange
+                    synthType={synthType}
+                    onSynthChange={handleSynthChange}
                     isArpeggiatorActive={isArpeggiatorActive}
                     onArpeggiatorToggle={() => setIsArpeggiatorActive(prev => !prev)}
                     arpeggiatorTiming={arpeggiatorTiming}
@@ -260,12 +340,16 @@ const Composer = () => {
                     onArpeggiatorRepeatsChange={setArpeggiatorRepeats}
                 />
             </div>
+
             <ChordSelector
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
                 onSave={handleSaveChord}
+                onAddPattern={handleAddPattern}
                 chord={editingChord}
-                previousChord={contextualChord}
+                musicalKey={musicalKey}
+                musicalMode={musicalMode}
+                contextualChord={contextualChord}
             />
         </div>
     );
