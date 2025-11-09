@@ -1,7 +1,6 @@
-import { Chord, Scale, Note, Mode, Interval } from 'tonal';
+import { Chord, Scale, Note, Mode } from 'tonal';
 import type { Chord as ChordType } from '../modes/composer/Composer';
-import { getRomanNumeralForChord } from './harmony';
-import { getAbbreviatedChordName } from './chords';
+import { getRomanNumeralForChord, COMMON_PATTERNS, getChordFromRomanNumeral, getDiatonicChords, getBorrowedChords } from './harmony';
 
 /**
  * A robust method for checking common notes between chords, accounting for octaves.
@@ -47,19 +46,6 @@ const getChordTensionScore = (chordName: string): number => {
     return 0;
 };
 
-
-// A dictionary of common harmonic patterns.
-const COMMON_PATTERNS: Record<string, string[]> = {
-    'ii-V-I Turnaround': ['ii', 'V', 'I'],
-    'I-vi-IV-V "Doo-Wop"': ['I', 'vi', 'IV', 'V'],
-    'I-V-vi-IV "Axis"': ['I', 'V', 'vi', 'IV'],
-    'Minor iv-V-i': ['iv', 'V', 'i'],
-    'Authentic Cadence (V-I)': ['V', 'I'],
-    'Plagal Cadence (IV-I)': ['IV', 'I'],
-    'Half Cadence (to V)': ['ii', 'V'],
-    'Deceptive Cadence (V-vi)': ['V', 'vi'],
-};
-
 const MODE_DESCRIPTIONS: Record<string, string> = {
     major: 'Bright and happy. The most common scale in Western music.',
     minor: 'Sad or melancholic. Often used for dramatic or emotional effect.',
@@ -80,32 +66,6 @@ const DIATONIC_SUGGESTIONS: Record<string, string[]> = {
     'VI': ['ii', 'IV'], 'vi': ['ii', 'IV'],
     'VII': ['I'], 'vii°': ['I', 'i']
 };
-
-/**
- * Gets a chord symbol for a given Roman numeral in a key.
- * @param roman The Roman numeral (e.g., "IV", "vi").
- * @param key The tonic of the key.
- * @param mode The mode of the key.
- * @returns A chord symbol (e.g., "Fmaj7") or null.
- */
-const getChordFromRomanNumeral = (roman: string, key: string, mode: string): string | null => {
-    const scale = Scale.get(`${key} ${mode}`);
-    if (scale.empty) return null;
-
-    const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
-    const baseRoman = roman.replace('°', '').replace('+', '').toUpperCase();
-    const degreeIndex = numerals.indexOf(baseRoman);
-    
-    if (degreeIndex === -1) return null;
-    
-    // Tonal's Mode.seventhChords is more reliable for getting the correct chord quality
-    const diatonicChords = Mode.seventhChords(mode, key);
-    if (diatonicChords.length > degreeIndex) {
-        return getAbbreviatedChordName(diatonicChords[degreeIndex]);
-    }
-    
-    return null;
-}
 
 /**
  * Generates suggestions for the next chord.
@@ -195,9 +155,9 @@ export const getSuggestionsForChord = (contextChordName: string | null, musicalK
  * @param contextChordName The chord to start the pattern from.
  * @param musicalKey The key of the progression.
  * @param musicalMode The mode of the progression.
- * @returns An array of pattern suggestions, each with a name and the remaining chords.
+ * @returns An array of pattern suggestions, each with a name and the remaining chords to add.
  */
-export const getPatternSuggestionsForChord = (contextChordName: string, musicalKey: string, musicalMode: string): { name: string, chords: string[] }[] => {
+export const getPatternSuggestionsForChord = (contextChordName: string, musicalKey: string, musicalMode: string): { name: string, chordsToAdd: string[] }[] => {
     const contextRoman = getRomanNumeralForChord(contextChordName, musicalKey, musicalMode);
     if (!contextRoman) return [];
 
@@ -207,21 +167,21 @@ export const getPatternSuggestionsForChord = (contextChordName: string, musicalK
     // Get the simple roman numeral (e.g., 'ii' from 'iim7') for pattern matching
     const simpleRoman = baseRomanMatch[2];
 
-    const suggestions: { name: string, chords: string[] }[] = [];
+    const suggestions: { name: string, chordsToAdd: string[] }[] = [];
 
     for (const [patternName, patternSequence] of Object.entries(COMMON_PATTERNS)) {
         const index = patternSequence.indexOf(simpleRoman);
         // Find patterns where the context chord is the first element
         if (index === 0 && patternSequence.length > 1) {
             const remainingNumerals = patternSequence.slice(1);
-            const remainingChords = remainingNumerals
+            const chordsToAdd = remainingNumerals
                 .map(numeral => getChordFromRomanNumeral(numeral, musicalKey, musicalMode))
                 .filter((c): c is string => c !== null); // Ensure chord conversion was successful
 
-            if (remainingChords.length === remainingNumerals.length) { // Check if all numerals were converted
+            if (chordsToAdd.length === remainingNumerals.length) { // Check if all numerals were converted
                 suggestions.push({
-                    name: patternName,
-                    chords: [contextChordName, ...remainingChords] // Return the full pattern for display
+                    name: `Complete '${patternName}'`,
+                    chordsToAdd: chordsToAdd
                 });
             }
         }
@@ -249,24 +209,33 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
     // Pattern Detection
     const romanProgression = validChords.map(chord => getRomanNumeralForChord(chord.name, musicalKey, musicalMode));
     const detectedPatterns: { name: string; chords: string[] }[] = [];
-    if (validChords.length >= 2) {
-        for (const [patternName, patternSequence] of Object.entries(COMMON_PATTERNS)) {
-            for (let i = 0; i <= romanProgression.length - patternSequence.length; i++) {
-                const romanSlice = romanProgression.slice(i, i + patternSequence.length);
+    const uniquePatterns = new Set<string>(); // To avoid duplicate pattern messages
 
+    if (validChords.length >= 2) {
+        for (let i = 0; i <= romanProgression.length - 2; i++) { // Check every possible slice
+            for (const [patternName, patternSequence] of Object.entries(COMMON_PATTERNS)) {
+                if (i + patternSequence.length > romanProgression.length) continue; // Slice would be out of bounds
+
+                const romanSlice = romanProgression.slice(i, i + patternSequence.length);
                 const simplifiedSlice = romanSlice.map(roman => {
                     if (!roman) return null;
-                    // This regex extracts the base numeral (e.g., 'V' from 'V7', 'vi' from 'vim7')
-                    // It's case-sensitive to distinguish major/minor.
                     const baseRomanMatch = roman.match(/^(I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)/);
                     return baseRomanMatch ? baseRomanMatch[0] : null;
                 });
 
+                if (simplifiedSlice.some(r => r === null)) continue;
+
                 if (JSON.stringify(simplifiedSlice) === JSON.stringify(patternSequence)) {
-                    detectedPatterns.push({
-                        name: patternName,
-                        chords: validChords.slice(i, i + patternSequence.length).map(c => c.name),
-                    });
+                    const chordsInPattern = validChords.slice(i, i + patternSequence.length).map(c => c.name);
+                    const patternKey = `${patternName}-${chordsInPattern.join(',')}`;
+                    
+                    if (!uniquePatterns.has(patternKey)) {
+                        detectedPatterns.push({
+                            name: patternName,
+                            chords: chordsInPattern,
+                        });
+                        uniquePatterns.add(patternKey);
+                    }
                 }
             }
         }
@@ -320,12 +289,17 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
     
     // Hints
     const scale = Scale.get(`${musicalKey} ${musicalMode}`);
+    const diatonicChords = getDiatonicChords(musicalKey, musicalMode);
+    const borrowedChords = getBorrowedChords(musicalKey, musicalMode);
+
     const hints = {
         scaleNotes: scale.notes || [],
         modeInfo: {
             name: musicalMode.charAt(0).toUpperCase() + musicalMode.slice(1),
             description: MODE_DESCRIPTIONS[musicalMode] || 'A musical mode.'
-        }
+        },
+        diatonicChords,
+        borrowedChords,
     };
 
     return { chordFrequency, detectedPatterns, richnessAnalysis, hints };

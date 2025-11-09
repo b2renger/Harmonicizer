@@ -1,27 +1,18 @@
 .progression-analyzer {
-    background-color: #1e1e1e;
-    border-radius: 12px;
-    padding: 1.5rem;
-    animation: fadeIn 0.5s ease-out;
-    border: 1px solid #333;
+    /* Container styles are now handled by the CollapsibleSection component */
 }
 
-.progression-analyzer h2 {
-    text-align: center;
-    margin-top: 0;
-    margin-bottom: 1.5rem;
-    background: linear-gradient(90deg, #4facfe, #00f2fe);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.analysis-sections {
+.analysis-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 2rem;
 }
 
-.analysis-sections h3 {
+.analysis-cell {
+    min-width: 0; /* Prevent overflow issues in grid cells */
+}
+
+.analysis-grid h3 {
     margin-top: 0;
     color: #a0a0a0;
     border-bottom: 1px solid #333;
@@ -30,13 +21,12 @@
     font-size: 1.1rem;
 }
 
-.analysis-sections .placeholder-text {
+.analysis-grid .placeholder-text {
     color: #777;
     font-style: italic;
     font-size: 0.9rem;
 }
 
-.frequency-list,
 .patterns-list {
     list-style: none;
     padding: 0;
@@ -44,16 +34,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-}
-
-.frequency-list li {
-    background-color: #2a2a2a;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: background-color 0.2s ease;
 }
 
 .patterns-list li {
@@ -65,18 +45,9 @@
     align-items: center;
 }
 
-.frequency-list .chord-name,
 .patterns-list .pattern-name {
     font-weight: 700;
     color: #fff;
-}
-
-.frequency-list .chord-count {
-    font-size: 0.9rem;
-    background-color: #121212;
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    color: #a0a0a0;
 }
 
 .patterns-list .pattern-chords {
@@ -84,26 +55,50 @@
     color: #ffbd6a;
     font-size: 0.9rem;
     text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 0.5rem;
 }
 
-.analysis-sections h4 {
+.analysis-grid h4 {
     color: #ddd;
     font-size: 0.9rem;
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 0.75rem 0;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+.analysis-grid h4.suggestion-header {
+    margin-top: 1.5rem; /* Add space between detected and suggested lists */
 }
 
 .hints-section {
     background-color: #2a2a2a;
     padding: 1rem;
     border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
 .hints-section p {
     font-size: 0.9rem;
     color: #ccc;
     margin: 0 0 1rem 0;
+}
+
+.info-subheader {
+    color: #ddd;
+    font-size: 0.9rem;
+    margin: 1rem 0 0.75rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 400;
+}
+
+.info-subheader:first-of-type {
+    margin-top: 0;
 }
 
 .scale-notes {
@@ -113,12 +108,43 @@
 }
 
 .note-chip {
-    background-color: #121212;
+    background-color: #000000;
     color: #4facfe;
     font-weight: 700;
     padding: 0.25rem 0.6rem;
     border-radius: 4px;
     font-size: 0.9rem;
+}
+
+.chord-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 0.5rem;
+}
+
+.chord-info-chip {
+    background-color: #111;
+    padding: 0.6rem;
+    border-radius: 4px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #333;
+    line-height: 1.2;
+}
+
+.chord-info-name {
+    font-weight: 700;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.chord-info-roman {
+    font-size: 0.8rem;
+    color: #a0a0a0;
+    margin-top: 0.2rem;
 }
 
 /* Styles for richness analysis */
@@ -174,14 +200,95 @@
     border: 1px solid #444;
 }
 
+/* New suggestion styles */
+.suggestion-header .suggestion-context {
+    color: #a0a0a0;
+    font-weight: 400;
+    font-size: 0.9em;
+}
+
+.suggestions-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.suggestion-category h5 {
+    margin: 0 0 0.75rem 0;
+    color: #888;
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
+.suggestion-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.suggestion-button {
+    background-color: #333;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 400;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.suggestion-button:hover {
+    background-color: #4facfe;
+    color: #000000;
+    border-color: #4facfe;
+    transform: translateY(-2px);
+}
+
+
+.suggestions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.suggestions-list .suggestion-item {
+    background-color: #222; /* Slightly different background for suggestions */
+}
+
+.suggestion-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    overflow: hidden; /* Prevent long names from pushing button out */
+}
+
+.add-suggestion-button {
+    background-color: #444;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    margin-left: 1rem; /* Space between text and button */
+}
+
+.add-suggestion-button:hover {
+    background-color: #4facfe;
+    color: #000000;
+    border-color: #4facfe;
+}
+
 @media (max-width: 900px) {
-    .analysis-sections {
+    .analysis-grid {
         grid-template-columns: 1fr 1fr;
     }
 }
 
 @media (max-width: 768px) {
-    .analysis-sections {
+    .analysis-grid {
         grid-template-columns: 1fr;
     }
 }

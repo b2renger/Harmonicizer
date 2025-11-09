@@ -5,7 +5,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #121212;
+  background-color: #000000;
   color: #ffffff;
   display: flex;
   align-items: flex-start; /* Changed from 'center' to fix overflow issues */

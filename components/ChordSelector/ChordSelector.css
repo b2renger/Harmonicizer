@@ -44,7 +44,7 @@
 .current-selection-display {
     margin-top: 0.5rem;
     color: #a0a0a0;
-    background-color: #121212;
+    background-color: #000000;
     padding: 0.5rem 1rem;
     border-radius: 6px;
     font-size: 1.1rem;
@@ -63,24 +63,26 @@
     gap: 1rem;
 }
 
-.duration-selector, .octave-selector {
+.duration-selector, .octave-selector, .voicing-selector {
     display: flex;
     align-items: center;
     gap: 0.75rem;
     flex-wrap: wrap;
 }
 
-.duration-selector label, .octave-selector label {
+.duration-selector label, .octave-selector label, .voicing-selector label {
     color: #a0a0a0;
     min-width: 60px;
 }
 
-.duration-buttons, .octave-buttons {
+.duration-buttons, .octave-buttons, .voicing-buttons {
     display: flex;
     gap: 0.5rem;
 }
 
-.duration-buttons button, .octave-buttons button {
+.duration-buttons button, 
+.octave-buttons button,
+.voicing-buttons button {
     background-color: #333;
     border: 1px solid #444;
     color: #fff;
@@ -92,9 +94,12 @@
     line-height: 1;
     min-width: 40px;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.octave-selector.disabled {
+.octave-selector.disabled, .voicing-selector.disabled {
     opacity: 0.4;
     pointer-events: none;
 }
@@ -146,7 +151,8 @@
 
 .button-grid button:hover,
 .duration-buttons button:hover,
-.octave-buttons button:hover {
+.octave-buttons button:hover,
+.voicing-buttons button:hover {
     background-color: #444;
 }
 
@@ -158,6 +164,10 @@
     font-weight: 700;
     transform: scale(1.05);
     border: 1px solid transparent;
+}
+
+.voicing-buttons button:active {
+    transform: scale(0.95);
 }
 
 .rest-button {
@@ -275,6 +285,25 @@
     color: #fff;
 }
 
+.chord-graph-dual-view {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+}
+
+.chord-graph-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #000000;
+    border-radius: 8px;
+    padding: 1rem;
+    color: #666;
+    font-style: italic;
+    min-height: 150px;
+    text-align: center;
+}
+
 @keyframes slideIn {
     from {
         opacity: 0;
@@ -313,6 +342,16 @@
     font-weight: 700;
 }
 
+
+@media (min-width: 600px) {
+    .chord-graph-dual-view {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .chord-graph-dual-view > *:only-child {
+        grid-column: 1 / -1; /* Make a single item span the full width */
+    }
+}
 
 @media (max-width: 600px) {
     .chromatic-controls {

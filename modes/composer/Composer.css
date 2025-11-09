@@ -36,7 +36,7 @@
     min-height: 0; /* Necessary for flexbox overflow scrolling */
 }
 
-.controls-container {
+.analysis-effects-container {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -53,6 +53,7 @@
     border-radius: 12px;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0; /* Prevent this from shrinking */
 }
 
 .main-controls-left {
@@ -60,10 +61,6 @@
     flex-wrap: wrap;
     gap: 1.5rem;
     align-items: center;
-}
-
-.analysis-toggle-button svg {
-    transform: rotate(90deg);
 }
 
 @media (max-width: 768px) {

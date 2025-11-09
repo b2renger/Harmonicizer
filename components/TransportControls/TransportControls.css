@@ -4,7 +4,14 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 1.5rem;
-    /* Removed padding and background-color, now handled by wrapper */
+    flex-grow: 1; /* Allow the component to grow and fill space */
+}
+
+.transport-controls-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
 }
 
 .playback-controls {
@@ -23,19 +30,29 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease, color 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.1s ease, color 0.2s ease, opacity 0.2s ease;
 }
 
-.control-button:hover {
+.control-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #2a2a2a;
+}
+
+.control-button:hover:not(:disabled) {
     background-color: #444;
 }
 
-.control-button.clear-button:hover {
+.control-button.lucky-button:hover:not(:disabled) {
+    color: #4facfe;
+}
+
+.control-button.clear-button:hover:not(:disabled) {
     color: #e52e71;
 }
 
 
-.control-button:active {
+.control-button:active:not(:disabled) {
     transform: scale(0.95);
 }
 
@@ -62,5 +79,8 @@
     .transport-controls {
         flex-direction: column;
         align-items: stretch;
+    }
+    .transport-controls-left {
+        justify-content: space-between;
     }
 }

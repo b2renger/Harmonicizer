@@ -139,3 +139,72 @@ export const getBorrowedChords = (tonic: string, modeName: string): Array<{ name
         roman: getRomanNumeralForChord(chord.name, tonic, modeName)
     }));
 };
+
+// A dictionary of common harmonic patterns.
+export const COMMON_PATTERNS: Record<string, string[]> = {
+    'ii-V-I Turnaround': ['ii', 'V', 'I'],
+    'I-vi-IV-V "Doo-Wop"': ['I', 'vi', 'IV', 'V'],
+    'I-V-vi-IV "Axis"': ['I', 'V', 'vi', 'IV'],
+    'Minor iv-V-i': ['iv', 'V', 'i'],
+    'Authentic Cadence (V-I)': ['V', 'I'],
+    'Plagal Cadence (IV-I)': ['IV', 'I'],
+    'Half Cadence (to V)': ['ii', 'V'],
+    'Deceptive Cadence (V-vi)': ['V', 'vi'],
+};
+
+/**
+ * Gets a chord symbol for a given Roman numeral in a key.
+ * @param roman The Roman numeral (e.g., "IV", "vi").
+ * @param key The tonic of the key.
+ * @param mode The mode of the key.
+ * @returns A chord symbol (e.g., "Fmaj7") or null.
+ */
+export const getChordFromRomanNumeral = (roman: string, key: string, mode: string): string | null => {
+    const scale = Scale.get(`${key} ${mode}`);
+    if (scale.empty) return null;
+
+    const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+    const baseRoman = roman.replace('°', '').replace('+', '').toUpperCase();
+    const degreeIndex = numerals.indexOf(baseRoman);
+    
+    if (degreeIndex === -1) return null;
+    
+    // Tonal's Mode.seventhChords is more reliable for getting the correct chord quality
+    const diatonicChords = Mode.seventhChords(mode, key);
+    if (diatonicChords.length > degreeIndex) {
+        return getAbbreviatedChordName(diatonicChords[degreeIndex]);
+    }
+    
+    return null;
+}
+
+/**
+ * Generates a random 4-chord progression based on common patterns.
+ * @param key The tonic of the key.
+ * @param mode The mode of the key.
+ * @returns An array of 4 chord names.
+ */
+export const generateRandomProgression = (key: string, mode: string): string[] => {
+    const fourChordPatterns = Object.values(COMMON_PATTERNS).filter(p => p.length === 4);
+    
+    let patternToUse: string[];
+
+    if (fourChordPatterns.length > 0) {
+        patternToUse = fourChordPatterns[Math.floor(Math.random() * fourChordPatterns.length)];
+    } else {
+        // Fallback if no 4-chord patterns are defined
+        patternToUse = mode === 'minor' ? ['i', 'VI', 'III', 'VII'] : ['I', 'V', 'vi', 'IV'];
+    }
+    
+    const chords = patternToUse
+        .map(numeral => getChordFromRomanNumeral(numeral, key, mode))
+        .filter((c): c is string => c !== null);
+
+    // If any chord failed to convert, use a failsafe progression
+    if (chords.length !== 4) {
+        const fallbackNumerals = mode === 'minor' ? ['i', 'iv', 'V', 'i'] : ['I', 'IV', 'V', 'I'];
+         return fallbackNumerals.map(n => getChordFromRomanNumeral(n, key, mode)).filter((c): c is string => c !== null);
+    }
+    
+    return chords;
+};

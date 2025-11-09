@@ -5,4 +5,23 @@
     padding: 1rem;
     background-color: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
+    align-items: start; /* Align items to the top */
+}
+
+.chord-grid-item {
+    display: flex;
+    flex-direction: column;
+    transition: all 0.2s ease;
+}
+
+/* Style for a potential drop target wrapper */
+.chord-grid-item.drag-over-wrapper {
+    /* outline: 2px dashed cyan; */
+    /* outline-offset: 4px; */
+    border-radius: 8px;
+}
+
+/* Styles for the wrapper of the card currently being dragged */
+.chord-grid-item.is-dragging-wrapper {
+    opacity: 0.4;
 }

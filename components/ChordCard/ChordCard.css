@@ -1,23 +1,33 @@
 .chord-card {
     background-color: #2a2a2a;
     border-radius: 8px;
-    padding: 1.5rem 1rem;
+    padding: 1rem;
     text-align: center;
-    cursor: grab; /* Changed to grab for draggable items */
+    cursor: pointer; /* Changed to pointer for preview action */
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
     border: 1px solid transparent;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: center; /* Center content vertically now that bottom button is gone */
     align-items: center;
     min-height: 120px;
-    position: relative; /* Added for absolute positioning of remove button */
+    position: relative;
     user-select: none; /* Prevent text selection during drag */
+    flex-grow: 1; /* Allow card to fill space in its container */
+}
+
+.chord-card.is-rest {
+    cursor: grab; /* Rests can't be previewed, so revert to grab */
+}
+
+.chord-card:active:not(.is-rest) {
+    cursor: pointer;
 }
 
 .chord-card:active {
     cursor: grabbing;
 }
+
 
 .chord-card:hover {
     transform: translateY(-5px);
@@ -36,6 +46,13 @@
     box-shadow: 0 0 20px rgba(255, 138, 0, 0.4);
     transform: translateY(-5px) scale(1.02);
 }
+
+.chord-card.selected {
+    border-color: #4facfe;
+    box-shadow: 0 0 20px rgba(79, 172, 254, 0.5);
+    transform: translateY(-5px) scale(1.02);
+}
+
 
 /* Styles for the card currently being dragged */
 .chord-card.is-dragging {
@@ -68,10 +85,17 @@
     color: #a0a0a0;
 }
 
-.remove-chord-button {
+.chord-card-buttons-top {
     position: absolute;
     top: 8px;
     right: 8px;
+    display: flex;
+    gap: 0.5rem;
+    z-index: 10;
+}
+
+.remove-chord-button,
+.edit-chord-button {
     background-color: rgba(0, 0, 0, 0.5);
     border: none;
     color: #fff;
@@ -82,8 +106,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease, color 0.2s ease;
-    z-index: 10;
+    transition: all 0.2s ease;
 }
 
 .remove-chord-button:hover {
@@ -91,52 +114,15 @@
     transform: scale(1.1);
 }
 
-.remove-chord-button svg {
+.edit-chord-button:hover {
+    background-color: #4facfe;
+    transform: scale(1.1);
+}
+
+.remove-chord-button svg,
+.edit-chord-button svg {
     width: 16px;
     height: 16px;
-}
-
-/* Voicing controls */
-.card-actions {
-    position: absolute;
-    bottom: 8px;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 0.5rem;
-    opacity: 0;
-    transition: opacity 0.2s ease-in-out;
-}
-
-.chord-card:hover .card-actions {
-    opacity: 1;
-}
-
-.action-button {
-    background-color: rgba(0, 0, 0, 0.6);
-    border: 1px solid #444;
-    color: #ccc;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.action-button:hover {
-    background-color: #e52e71;
-    color: #fff;
-    transform: scale(1.1);
-    border-color: #e52e71;
-}
-
-.action-button:active {
-    transform: scale(1);
 }
 
 .add-card {

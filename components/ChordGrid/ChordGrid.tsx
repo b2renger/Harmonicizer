@@ -1,26 +1,29 @@
 import React, { useState } from 'react';
 import ChordCard from '../ChordCard/ChordCard';
+import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisualizer';
 import './ChordGrid.css';
 import type { Chord } from '../../modes/composer/Composer';
 
 interface ChordGridProps {
     progression: Chord[];
-    onCardClick: (chord: Partial<Chord> | null) => void;
+    onEditChord: (chord: Partial<Chord> | null) => void;
+    onSelectChord: (chordId: string) => void;
+    selectedChordId: string | null;
     currentlyPlayingChordId: string | null;
     onRemoveChord: (id: string) => void;
     onReorderProgression: (newProgression: Chord[]) => void;
-    onInvertChord: (chordId: string, direction: 'up' | 'down') => void;
-    onPermuteChord: (chordId: string) => void;
+    isNoteVisualizerVisible: boolean;
 }
 
 const ChordGrid: React.FC<ChordGridProps> = ({ 
     progression, 
-    onCardClick, 
+    onEditChord,
+    onSelectChord,
+    selectedChordId,
     currentlyPlayingChordId, 
     onRemoveChord, 
     onReorderProgression,
-    onInvertChord,
-    onPermuteChord
+    isNoteVisualizerVisible,
 }) => {
     const [draggedChordId, setDraggedChordId] = useState<string | null>(null);
     const [dragOverChordId, setDragOverChordId] = useState<string | null>(null);
@@ -28,15 +31,13 @@ const ChordGrid: React.FC<ChordGridProps> = ({
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, chordId: string) => {
         setDraggedChordId(chordId);
         e.dataTransfer.effectAllowed = 'move';
-        // Use a timeout to allow the browser to render the component update (e.g., opacity change)
-        // before creating the drag image.
         setTimeout(() => {
-            e.currentTarget.classList.add('is-dragging');
+            (e.currentTarget.parentNode as HTMLElement).classList.add('is-dragging-wrapper');
         }, 0);
     };
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>, chordId: string) => {
-        e.preventDefault(); // Necessary to allow dropping
+        e.preventDefault();
         if (chordId !== dragOverChordId) {
             setDragOverChordId(chordId);
         }
@@ -49,26 +50,34 @@ const ChordGrid: React.FC<ChordGridProps> = ({
     const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetChordId: string) => {
         e.preventDefault();
         if (!draggedChordId || draggedChordId === targetChordId) {
+            cleanupDragState();
             return;
         }
 
         const draggedChord = progression.find(c => c.id === draggedChordId);
-        if (!draggedChord) return;
+        if (!draggedChord) {
+            cleanupDragState();
+            return;
+        };
 
         const remainingChords = progression.filter(c => c.id !== draggedChordId);
-        const targetIndex = remainingChords.findIndex(c => c.id === targetChordId);
+        let targetIndex = remainingChords.findIndex(c => c.id === targetChordId);
 
-        if (targetIndex !== -1) {
-            remainingChords.splice(targetIndex, 0, draggedChord);
-            onReorderProgression(remainingChords);
-        }
+        // If dropping on the dragged item's original wrapper, target index can be tricky.
+        // A better way is to find the index of the drop target in the original array.
+        const originalTargetIndex = progression.findIndex(c => c.id === targetChordId);
+        const originalDraggedIndex = progression.findIndex(c => c.id === draggedChordId);
+
+        const newProgression = [...progression];
+        const [removed] = newProgression.splice(originalDraggedIndex, 1);
+        newProgression.splice(originalTargetIndex, 0, removed);
         
+        onReorderProgression(newProgression);
         cleanupDragState();
     };
 
     const cleanupDragState = () => {
-        // Find all dragging elements and remove the class
-        document.querySelectorAll('.is-dragging').forEach(el => el.classList.remove('is-dragging'));
+        document.querySelectorAll('.is-dragging-wrapper').forEach(el => el.classList.remove('is-dragging-wrapper'));
         setDraggedChordId(null);
         setDragOverChordId(null);
     }
@@ -81,27 +90,33 @@ const ChordGrid: React.FC<ChordGridProps> = ({
     return (
         <div className="chord-grid">
             {progression.map(chord => (
-                <ChordCard 
-                    key={chord.id} 
-                    chordId={chord.id}
-                    name={chord.name} 
-                    duration={chord.duration}
-                    octave={chord.octave}
-                    onClick={() => onCardClick(chord)}
-                    isPlaying={currentlyPlayingChordId === chord.id}
-                    onRemove={onRemoveChord}
-                    onInvert={(direction) => onInvertChord(chord.id, direction)}
-                    onPermute={() => onPermuteChord(chord.id)}
-                    // Drag and Drop props
-                    onDragStart={(e) => handleDragStart(e, chord.id)}
+                <div 
+                    key={chord.id}
+                    className={`chord-grid-item ${dragOverChordId === chord.id && draggedChordId !== chord.id ? 'drag-over-wrapper' : ''}`}
                     onDragOver={(e) => handleDragOver(e, chord.id)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, chord.id)}
-                    onDragEnd={handleDragEnd}
-                    isDragOver={dragOverChordId === chord.id && draggedChordId !== chord.id}
-                />
+                >
+                    <ChordCard 
+                        chordId={chord.id}
+                        name={chord.name} 
+                        duration={chord.duration}
+                        octave={chord.octave}
+                        onEdit={() => onEditChord(chord)}
+                        onSelect={onSelectChord}
+                        isSelected={selectedChordId === chord.id}
+                        isPlaying={currentlyPlayingChordId === chord.id}
+                        onRemove={onRemoveChord}
+                        // Drag and Drop props
+                        onDragStart={(e) => handleDragStart(e, chord.id)}
+                        onDragEnd={handleDragEnd}
+                    />
+                    {isNoteVisualizerVisible && chord.name !== 'Rest' && (
+                        <VerticalNoteVisualizer chordName={chord.name} />
+                    )}
+                </div>
             ))}
-            <button className="add-card" onClick={() => onCardClick(null)}>
+            <button className="add-card" onClick={() => onEditChord(null)}>
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                     <path d="M19 13H13V19H11V13H5V11H11V5H13V11H19V13Z"/>
                 </svg>

@@ -6,9 +6,10 @@ import { getDisplayChordName } from '../../theory/chords';
 interface ChordGraphProps {
     chord1Name: string | null;
     chord2Name: string | null;
+    title?: string;
 }
 
-const ChordGraph: React.FC<ChordGraphProps> = ({ chord1Name, chord2Name }) => {
+const ChordGraph: React.FC<ChordGraphProps> = ({ chord1Name, chord2Name, title }) => {
     // Only render if we have a "from" chord to compare against.
     if (!chord1Name || chord1Name === 'Rest' || !chord2Name || chord2Name === 'Rest') {
         return null;
@@ -38,6 +39,7 @@ const ChordGraph: React.FC<ChordGraphProps> = ({ chord1Name, chord2Name }) => {
 
     return (
         <div className="chord-graph-container">
+            {title && <h4 className="chord-graph-title">{title}</h4>}
             <div className="chord-graph">
                 {/* Headers */}
                 <div className="graph-header from-chord">{getDisplayChordName(chord1Name)}</div>

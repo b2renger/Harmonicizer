@@ -1,7 +1,15 @@
 .chord-graph-container {
-    background-color: #121212;
+    background-color: #000000;
     border-radius: 8px;
     padding: 1rem;
+}
+
+.chord-graph-title {
+    text-align: center;
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    font-weight: 400;
+    color: #a0a0a0;
 }
 
 .chord-graph {
@@ -47,7 +55,7 @@
 
 .note-cell.common {
     background-color: #ff8a00;
-    color: #121212;
+    color: #000000;
     box-shadow: 0 0 10px rgba(255, 138, 0, 0.5);
     transform: scale(1.02);
 }

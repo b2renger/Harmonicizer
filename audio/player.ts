@@ -38,6 +38,19 @@ export class Player {
         this.onTick = onTick;
     }
 
+    playOneShot(chordName: string, octave: number) {
+        if (Tone.context.state !== 'running') {
+            Tone.start();
+        }
+        if (chordName === 'Rest') return;
+        
+        const notes = getChordNotesWithOctaves(chordName, octave);
+        if (notes.length > 0) {
+            // Use an eighth note's duration relative to the current tempo for a musical preview
+            this.synth.triggerAttackRelease(notes, "8n", Tone.now());
+        }
+    }
+
     async start() {
         if (Tone.context.state !== 'running') {
             await Tone.start();
@@ -64,6 +77,14 @@ export class Player {
     }
 
     setProgression(progression: Chord[]) {
+        const wasPlaying = Tone.Transport.state === 'started';
+        const currentPosition = Tone.Transport.position;
+
+        // Pause the transport to safely swap out the Part
+        if (wasPlaying) {
+            Tone.Transport.pause();
+        }
+
         this.progression = progression; // Store the progression
         console.log('Player.setProgression called with:', progression);
         if (this.part) {
@@ -75,7 +96,8 @@ export class Player {
         if (progression.length === 0) {
             Tone.Transport.loopEnd = 0;
             this.onTick(null);
-            if (Tone.Transport.state === 'started') {
+            if (wasPlaying) {
+                // If it was playing, now it's an empty progression, so stop it.
                 this.stop();
             }
             return;
@@ -170,6 +192,11 @@ export class Player {
         const totalBars = Math.floor(accumulatedBeats / timeSignature);
         const totalBeatsRemainder = accumulatedBeats % timeSignature;
         Tone.Transport.loopEnd = `${totalBars}:${totalBeatsRemainder}:0`;
+
+        // Restart the transport from where it was
+        if (wasPlaying) {
+            Tone.Transport.start(Tone.now(), currentPosition);
+        }
     }
 
     setTempo(bpm: number) {

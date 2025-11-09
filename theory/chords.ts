@@ -164,7 +164,7 @@ export const randomlyInvertChord = (chordName: string): string => {
 
 /**
  * Generates an array of notes with correct octaves for a given chord symbol and bass octave.
- * This is crucial for playing inversions correctly.
+ * This is crucial for playing inversions correctly. It now uses MIDI numbers for robust octave calculation.
  * @param chordName The name of the chord, including any inversion (e.g., 'Cmaj7/E').
  * @param octave The octave for the bass note of the chord.
  * @returns An array of scientific note names (e.g., ['E4', 'G4', 'B4', 'C5']).
@@ -173,23 +173,41 @@ export const getChordNotesWithOctaves = (chordName: string, octave: number): str
     if (!chordName || chordName === 'Rest') return [];
 
     const chordInfo = Chord.get(chordName);
-    if (chordInfo.empty) return [];
-    const notes = chordInfo.notes;
+    if (chordInfo.empty || !chordInfo.tonic) return [];
 
-    if (!notes || notes.length === 0) return [];
+    // 1. Get root position notes to establish the base structure
+    const rootPositionNotes = Chord.get(chordInfo.tonic + chordInfo.type).notes;
+    if (rootPositionNotes.length === 0) return [];
 
+    // 2. Identify the bass note (root of the inversion)
+    const bassNote = chordInfo.root || chordInfo.tonic;
+
+    // 3. Reorder notes starting from the bass note for the correct voicing
+    const bassNoteIndex = rootPositionNotes.indexOf(bassNote);
+    if (bassNoteIndex === -1) return []; // Should not happen with valid chords
+
+    const reorderedNotes = [
+        ...rootPositionNotes.slice(bassNoteIndex),
+        ...rootPositionNotes.slice(0, bassNoteIndex)
+    ];
+
+    // 4. Apply octaves, starting with the bass note, ensuring the voicing is always ascending
     let currentOctave = octave;
-    let previousChroma: number | null = null;
-    
-    return notes.map((note, index) => {
-        const chroma = Note.chroma(note);
-        if (chroma === null) return ''; // Should not happen with valid notes
+    let previousMidi: number | null = null; 
 
-        if (index > 0 && previousChroma !== null && chroma < previousChroma) {
+    return reorderedNotes.map(note => {
+        let noteWithOctave = `${note}${currentOctave}`;
+        let currentMidi = Note.midi(noteWithOctave);
+
+        // If the current note's MIDI value is less than or equal to the previous one,
+        // it means we've crossed an octave boundary and need to go up.
+        if (currentMidi !== null && previousMidi !== null && currentMidi <= previousMidi) {
             currentOctave++;
+            noteWithOctave = `${note}${currentOctave}`;
+            currentMidi = Note.midi(noteWithOctave);
         }
-        
-        previousChroma = chroma;
-        return `${note}${currentOctave}`;
-    }).filter(Boolean); // Filter out any empty strings
+
+        previousMidi = currentMidi;
+        return noteWithOctave;
+    });
 };
