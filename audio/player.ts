@@ -38,17 +38,14 @@ export class Player {
         this.onTick = onTick;
     }
 
-    playOneShot(chordName: string, octave: number) {
+    playOneShot(notes: string[]) {
         if (Tone.context.state !== 'running') {
             Tone.start();
         }
-        if (chordName === 'Rest') return;
+        if (notes.length === 0) return;
         
-        const notes = getChordNotesWithOctaves(chordName, octave);
-        if (notes.length > 0) {
-            // Use an eighth note's duration relative to the current tempo for a musical preview
-            this.synth.triggerAttackRelease(notes, "8n", Tone.now());
-        }
+        // Use an eighth note's duration relative to the current tempo for a musical preview
+        this.synth.triggerAttackRelease(notes, "8n", Tone.now());
     }
 
     async start() {
@@ -113,9 +110,9 @@ export class Player {
             const eventStart = `${bars}:${beats}:0`;
             const chordDurationInBeats = chord.duration;
             
-            const notes = getChordNotesWithOctaves(chord.name, chord.octave);
+            const notes = chord.notes;
 
-            if (chord.name === 'Rest' || notes.length === 0) {
+            if (notes.length === 0) {
                 // For rests or chords with no notes, simply advance time
                 allEvents.push({ time: eventStart, id: chord.id, duration: chordDurationInBeats });
                 accumulatedBeats += chordDurationInBeats;

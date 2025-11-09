@@ -1,19 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { rootNotes, chordTypes, getDisplayChordName, invertChord, randomlyInvertChord } from '../../theory/chords';
-import { getSuggestionsForChord, getPatternSuggestionsForChord } from '../../theory/analysis';
-import { getDiatonicChords, getBorrowedChords } from '../../theory/harmony';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { rootNotes, chordTypes, getDisplayChordName, getChordNotesWithOctaves, detectChordFromNotes, getAbbreviatedNameFromNotes, getNextInversion, getPreviousInversion, getPermutedVoicing } from '../../theory/chords';
 import type { Chord } from '../../modes/composer/Composer';
 import type { Player } from '../../audio/player';
-import { Chord as TonalChord } from 'tonal';
-import ChordGraph from '../ChordGraph/ChordGraph';
+import { Chord as TonalChord, Note } from 'tonal';
+import ChordTransitionVisualizer from '../ChordTransitionVisualizer/ChordTransitionVisualizer';
+import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisualizer';
 import CollapsibleSection from '../CollapsibleSection/CollapsibleSection';
 import './ChordSelector.css';
 
 interface ChordSelectorProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (chord: Omit<Chord, 'id'>) => void;
-    onAddPattern: (patternChords: string[]) => void;
+    onSave: (chord: { notes: string[], duration: number }) => void;
     chord: Partial<Chord> | null;
     musicalKey: string;
     musicalMode: string;
@@ -22,29 +20,13 @@ interface ChordSelectorProps {
     player: Player | null;
 }
 
-const SuggestionGrid: React.FC<{ title: string; chords: string[]; onChordClick: (name: string) => void; currentSelection: string }> = ({ title, chords, onChordClick, currentSelection }) => {
-    if (!chords || chords.length === 0) return null;
-    return (
-        <div className="modal-subsection">
-            <h4>{title}</h4>
-            <div className="button-grid">
-                {chords.map((name) => (
-                    <button key={name} className={currentSelection === name ? 'active' : ''} onClick={() => onChordClick(name)}>
-                        {getDisplayChordName(name)}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, onAddPattern, chord, musicalKey, musicalMode, contextualChord, nextChord, player }) => {
+const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode, contextualChord, nextChord, player }) => {
     const [selectedRoot, setSelectedRoot] = useState('C');
     const [selectedType, setSelectedType] = useState('maj7');
     const [selectedDuration, setSelectedDuration] = useState(4);
     const [selectedOctave, setSelectedOctave] = useState(4);
     const [isRest, setIsRest] = useState(false);
-    const [selectedChordName, setSelectedChordName] = useState('Cmaj7');
+    const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
 
 
     const parseChordName = (name: string | undefined) => {
@@ -62,97 +44,100 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
 
     useEffect(() => {
         if (isOpen) {
-            const initialName = chord?.name || `${musicalKey || 'C'}maj7`;
-            setSelectedChordName(initialName);
-            if (initialName === 'Rest') {
-                setIsRest(true);
+            const initialNotes = chord?.notes && chord.notes.length > 0
+                ? chord.notes
+                : getChordNotesWithOctaves(`${musicalKey || 'C'}maj7`, 4);
+            
+            setSelectedNotes(initialNotes);
+            setSelectedDuration(chord?.duration || 4);
+
+            if (!chord?.notes || chord.notes.length === 0) {
+                 setIsRest(true);
             } else {
-                setIsRest(false);
-                const { root, type } = parseChordName(initialName);
+                 setIsRest(false);
+            }
+
+            // Update controls based on notes
+            const detectedName = detectChordFromNotes(initialNotes);
+            if (detectedName) {
+                const { root, type } = parseChordName(detectedName);
                 if (root) setSelectedRoot(root);
                 if (type) setSelectedType(type === 'M' ? 'maj' : type);
             }
-            setSelectedDuration(chord?.duration || 4);
-            setSelectedOctave(chord?.octave || 4);
+            
+            if (initialNotes.length > 0) {
+                const bassNote = initialNotes.slice().sort((a,b) => (Note.midi(a) || 0) - (Note.midi(b) || 0))[0];
+                setSelectedOctave(Note.octave(bassNote) || 4);
+            } else {
+                setSelectedOctave(4);
+            }
         }
     }, [isOpen, chord, musicalKey]);
 
-    const suggestions = useMemo(() => {
-        return getSuggestionsForChord(contextualChord?.name || null, musicalKey, musicalMode);
-    }, [contextualChord, musicalKey, musicalMode]);
-
-    const patternSuggestions = useMemo(() => {
-        if (!contextualChord || contextualChord.name === 'Rest') return [];
-        return getPatternSuggestionsForChord(contextualChord.name, musicalKey, musicalMode);
-    }, [contextualChord, musicalKey, musicalMode]);
-
-    const diatonicChords = useMemo(() => getDiatonicChords(musicalKey, musicalMode), [musicalKey, musicalMode]);
-    const borrowedChords = useMemo(() => getBorrowedChords(musicalKey, musicalMode), [musicalKey, musicalMode]);
+    const updateNotesFromControls = useCallback(() => {
+        if (isRest) {
+            setSelectedNotes([]);
+            return;
+        }
+        const newName = `${selectedRoot}${selectedType}`;
+        const newNotes = getChordNotesWithOctaves(newName, selectedOctave);
+        setSelectedNotes(newNotes);
+        player?.playOneShot(newNotes);
+    }, [selectedRoot, selectedType, selectedOctave, isRest, player]);
 
     const handleSave = () => {
         onSave({
-            name: isRest ? 'Rest' : selectedChordName,
+            notes: isRest ? [] : selectedNotes,
             duration: selectedDuration,
-            octave: selectedOctave,
         });
     };
 
-    const handleSuggestionClick = (name: string) => {
-        setSelectedChordName(name);
-        const { root, type } = parseChordName(name);
-        if (root) setSelectedRoot(root);
-        if (type) setSelectedType(type === 'M' ? 'maj' : type);
-        setIsRest(false);
-    };
-
-    // FIX: Updated handler to work with the new `chordsToAdd` property from `getPatternSuggestionsForChord`.
-    const handleAddPattern = (pattern: { name: string, chordsToAdd: string[] }) => {
-        onAddPattern(pattern.chordsToAdd);
-    };
-
     const handleInvert = (direction: 'up' | 'down') => {
-        if (isRest || !selectedChordName) return;
-        const newName = invertChord(selectedChordName, direction);
-        setSelectedChordName(newName);
-        player?.playOneShot(newName, selectedOctave);
+        if (isRest || selectedNotes.length < 2) return;
+        const newNotes = direction === 'up' 
+            ? getNextInversion(selectedNotes) 
+            : getPreviousInversion(selectedNotes);
+        setSelectedNotes(newNotes);
+        player?.playOneShot(newNotes);
     };
 
     const handlePermute = () => {
-        if (isRest || !selectedChordName) return;
-        const newName = randomlyInvertChord(selectedChordName);
-        setSelectedChordName(newName);
-        player?.playOneShot(newName, selectedOctave);
+        if (isRest || selectedNotes.length < 3) return;
+        const newNotes = getPermutedVoicing(selectedNotes);
+        setSelectedNotes(newNotes);
+        player?.playOneShot(newNotes);
     };
 
-    const handleRootChange = (newRoot: string) => {
-        setSelectedRoot(newRoot);
-        // Rebuild the chord name, which resets any inversion. This is the desired behavior
-        // when the user explicitly changes the root note.
-        setSelectedChordName(`${newRoot}${selectedType}`);
-    };
-    
-    const handleTypeChange = (newType: string) => {
-        setSelectedType(newType);
-        // Rebuild the chord name, which resets any inversion. This is the desired behavior
-        // when the user explicitly changes the chord type.
-        setSelectedChordName(`${selectedRoot}${newType}`);
-    };
+    useEffect(() => {
+        // This effect runs when root, type, or octave changes to update notes
+        updateNotesFromControls();
+    }, [selectedRoot, selectedType, selectedOctave, isRest]);
 
+    const handleSelectedChordNotesUpdate = (newNotes: string[]) => {
+        setSelectedNotes(newNotes);
+        const newChordName = detectChordFromNotes(newNotes);
+        if (newChordName) {
+            const { root, type } = parseChordName(newChordName);
+            if (root) setSelectedRoot(root);
+            if (type) setSelectedType(type === 'M' ? 'maj' : type);
+        }
+        player?.playOneShot(newNotes);
+    };
 
     if (!isOpen) return null;
 
-    const displaySelection = getDisplayChordName(isRest ? 'Rest' : selectedChordName, selectedOctave);
+    const displaySelection = getAbbreviatedNameFromNotes(selectedNotes);
     
-    const selectedChordIsValid = !isRest && !TonalChord.get(selectedChordName).empty;
-    const prevChordIsValid = contextualChord && contextualChord.name !== 'Rest';
-    const nextChordIsValid = nextChord && nextChord.name !== 'Rest';
-    const showVisualization = selectedChordIsValid && (prevChordIsValid || nextChordIsValid);
+    const selectedChordIsValid = selectedNotes.length > 0;
+    const prevChordIsValid = contextualChord && contextualChord.notes.length > 0;
+    const nextChordIsValid = nextChord && nextChord.notes.length > 0;
+    const showVisualization = selectedChordIsValid;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
                 <header className="modal-header">
-                    <h2>{chord?.name ? 'Edit Chord' : 'Add Chord'}</h2>
+                    <h2>{chord?.notes ? 'Edit Chord' : 'Add Chord'}</h2>
                     <div className="current-selection-display">
                         {displaySelection}
                         {' for '} 
@@ -163,10 +148,13 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
                 <div className="modal-sections-wrapper">
                      <div className="static-section">
                         <div className="section-header-static">
-                            <h3>Basics</h3>
+                            <h3>Chord Properties</h3>
                         </div>
                         <div className="section-content-inner">
                             <div className="basics-controls">
+                                <button className={`rest-button ${isRest ? 'active' : ''}`} onClick={() => setIsRest(!isRest)}>
+                                    {isRest ? 'Set Chord' : 'Set Rest'}
+                                </button>
                                 <div className="duration-selector">
                                     <label>Duration:</label>
                                     <div className="duration-buttons">
@@ -201,112 +189,73 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ isOpen, onClose, onSave, 
                                         </button>
                                     </div>
                                 </div>
-                                <button className={`rest-button ${isRest ? 'active' : ''}`} onClick={() => setIsRest(!isRest)}>
-                                    {isRest ? 'Set Chord' : 'Set Rest'}
-                                </button>
+                                <div className={`chromatic-controls ${isRest ? 'disabled' : ''}`}>
+                                     <div className="modal-subsection">
+                                        <h4>Root Note</h4>
+                                        <div className="button-grid">
+                                            {rootNotes.map(note => (
+                                                <button key={note} className={selectedRoot === note ? 'active' : ''} onClick={() => setSelectedRoot(note)}>
+                                                    {note}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="modal-subsection">
+                                        <h4>Chord Type</h4>
+                                        <div className="button-grid">
+                                            {chordTypes.map(type => (
+                                                <button 
+                                                    key={type} 
+                                                    className={selectedType === type ? 'active' : ''}
+                                                    onClick={() => setSelectedType(type)}>
+                                                    {type}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {patternSuggestions.length > 0 && (
-                        <CollapsibleSection title="Suggested Patterns">
-                            <ul className="pattern-list">
-                                {patternSuggestions.map(pattern => (
-                                    <li key={pattern.name} className="pattern-item">
-                                        <div className="pattern-info">
-                                            <span className="pattern-name">{pattern.name}</span>
-                                            {/* FIX: Use `chordsToAdd` property which exists on the pattern object. */}
-                                            <span className="pattern-chords">
-                                                {pattern.chordsToAdd.map(c => getDisplayChordName(c)).join(' → ')}
-                                            </span>
-                                        </div>
-                                        {/* FIX: The call is now valid because `handleAddPattern` has been updated to accept the correct type. */}
-                                        <button className="add-pattern-button" onClick={() => handleAddPattern(pattern)}>Add</button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </CollapsibleSection>
-                    )}
-
-                    <CollapsibleSection title={`Suggested Chords ${contextualChord ? `after ${getDisplayChordName(contextualChord.name, contextualChord.octave)}` : ''}`}>
-                        <SuggestionGrid title="Coherent" chords={suggestions.coherent} onChordClick={handleSuggestionClick} currentSelection={selectedChordName} />
-                        <SuggestionGrid title="Inventive (Modal Mixture)" chords={suggestions.inventive} onChordClick={handleSuggestionClick} currentSelection={selectedChordName} />
-                        <SuggestionGrid title="Jazzy" chords={suggestions.jazzy} onChordClick={handleSuggestionClick} currentSelection={selectedChordName} />
-                        <SuggestionGrid title="Classical" chords={suggestions.classical} onChordClick={handleSuggestionClick} currentSelection={selectedChordName} />
-                    </CollapsibleSection>
-                    
-                    <CollapsibleSection title="Harmonic Hints">
-                        <div className="modal-subsection">
-                            <h4>Diatonic Chords in {musicalKey} {musicalMode}</h4>
-                            <div className="button-grid">
-                                {diatonicChords.map(({ name, roman }) => (
-                                    <button key={name} className={selectedChordName === name ? 'active' : ''} onClick={() => handleSuggestionClick(name)}>
-                                        {getDisplayChordName(name)} <span className="roman-numeral">{roman}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                         <div className="modal-subsection">
-                            <h4>Borrowed Chords</h4>
-                            <div className="button-grid">
-                                {borrowedChords.map(({ name, roman }) => (
-                                    <button key={name} className={selectedChordName === name ? 'active' : ''} onClick={() => handleSuggestionClick(name)}>
-                                        {getDisplayChordName(name)} <span className="roman-numeral">{roman}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </CollapsibleSection>
-                    
                     {showVisualization && (
                          <CollapsibleSection title="Note Visualization" defaultOpen>
-                            <div className="chord-graph-dual-view">
+                            <div className="chord-visualization-container">
                                 {prevChordIsValid && (
-                                    <ChordGraph
-                                        chord1Name={contextualChord.name}
-                                        chord2Name={selectedChordName}
-                                        title={`From ${getDisplayChordName(contextualChord.name)}`}
+                                    <ChordTransitionVisualizer
+                                        fromNotes={contextualChord.notes}
+                                        toNotes={selectedNotes}
+                                        title={`From ${getAbbreviatedNameFromNotes(contextualChord.notes)}`}
+                                        onToChordNotesChange={handleSelectedChordNotesUpdate}
+                                        musicalKey={musicalKey}
+                                        musicalMode={musicalMode}
                                     />
                                 )}
+
+                                <div className="current-chord-visualizer-container">
+                                    <h4 className="current-chord-visualizer-title">
+                                        {getAbbreviatedNameFromNotes(selectedNotes)}
+                                    </h4>
+                                    <VerticalNoteVisualizer
+                                        notes={selectedNotes}
+                                        onNotesChange={handleSelectedChordNotesUpdate}
+                                        musicalKey={musicalKey}
+                                        musicalMode={musicalMode}
+                                    />
+                                </div>
+
                                 {nextChordIsValid && (
-                                    <ChordGraph
-                                        chord1Name={selectedChordName}
-                                        chord2Name={nextChord.name}
-                                        title={`To ${getDisplayChordName(nextChord.name)}`}
+                                    <ChordTransitionVisualizer
+                                        fromNotes={selectedNotes}
+                                        toNotes={nextChord.notes}
+                                        title={`To ${getAbbreviatedNameFromNotes(nextChord.notes)}`}
+                                        musicalKey={musicalKey}
+                                        musicalMode={musicalMode}
                                     />
                                 )}
                             </div>
                         </CollapsibleSection>
                     )}
-
-
-                    <CollapsibleSection title="Chromatic (Advanced)">
-                        <div className={`chromatic-controls ${isRest ? 'disabled' : ''}`}>
-                             <div className="modal-subsection">
-                                <h4>Root Note</h4>
-                                <div className="button-grid">
-                                    {rootNotes.map(note => (
-                                        <button key={note} className={selectedRoot === note ? 'active' : ''} onClick={() => handleRootChange(note)}>
-                                            {note}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="modal-subsection">
-                                <h4>Chord Type</h4>
-                                <div className="button-grid">
-                                    {chordTypes.map(type => (
-                                        <button 
-                                            key={type} 
-                                            className={selectedType === type ? 'active' : ''}
-                                            onClick={() => handleTypeChange(type)}>
-                                            {type}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </CollapsibleSection>
                 </div>
 
 

@@ -60,7 +60,7 @@
 .basics-controls {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.5rem;
 }
 
 .duration-selector, .octave-selector, .voicing-selector {
@@ -171,7 +171,7 @@
 }
 
 .rest-button {
-    align-self: flex-start;
+    width: 100%;
     padding: 0.75rem 1.5rem;
     font-size: 1rem;
     background-color: #333;
@@ -180,6 +180,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
+    box-sizing: border-box;
 }
 
 .rest-button:hover {
@@ -285,11 +286,33 @@
     color: #fff;
 }
 
-.chord-graph-dual-view {
+.chord-visualization-container {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: 1rem;
 }
+
+.current-chord-visualizer-container {
+    background-color: #000000;
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.current-chord-visualizer-title {
+    text-align: center;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 400;
+    color: #a0a0a0;
+}
+
+.current-chord-visualizer-container .vertical-note-visualizer {
+    margin-top: 0;
+}
+
 
 .chord-graph-placeholder {
     display: flex;
@@ -344,12 +367,8 @@
 
 
 @media (min-width: 600px) {
-    .chord-graph-dual-view {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .chord-graph-dual-view > *:only-child {
-        grid-column: 1 / -1; /* Make a single item span the full width */
+    .chord-visualization-container {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     }
 }
 

@@ -7,17 +7,17 @@ import KeySignature from '../../components/KeySignature/KeySignature';
 import ProgressionAnalyzer from '../../components/ProgressionAnalyzer/ProgressionAnalyzer';
 import CollapsibleSection from '../../components/CollapsibleSection/CollapsibleSection';
 import { Player, SynthType, EnvelopeSettings } from '../../audio/player';
-import { analyzeProgression, getSuggestionsForChord, getPatternSuggestionsForChord, getProgressionNoteRange } from '../../theory/analysis';
+import { analyzeProgression, getSuggestionsForChord, getPatternSuggestionsForChord } from '../../theory/analysis';
 import { generateRandomProgression, getDiatonicChords } from '../../theory/harmony';
 import './Composer.css';
 import type * as Tone from 'tone';
-import { rootNotes, modes } from '../../theory/chords';
+import { rootNotes, modes, detectChordFromNotes, getChordNotesWithOctaves, getNextInversion, getPreviousInversion, getPermutedVoicing } from '../../theory/chords';
+import { Note } from 'tonal';
 
 export interface Chord {
     id: string;
-    name: string;
+    notes: string[]; // e.g., ['C4', 'E4', 'G4', 'B4']
     duration: number; // in beats
-    octave: number;
 }
 
 const MAX_HISTORY_SIZE = 30;
@@ -25,10 +25,10 @@ const MAX_HISTORY_SIZE = 30;
 const Composer = () => {
     console.log('Composer component rendering...');
     const [progression, setProgression] = useState<Chord[]>([
-        { id: crypto.randomUUID(), name: 'Cmaj7', duration: 4, octave: 4 },
-        { id: crypto.randomUUID(), name: 'Am7', duration: 4, octave: 4 },
-        { id: crypto.randomUUID(), name: 'Dm7', duration: 4, octave: 4 },
-        { id: crypto.randomUUID(), name: 'G7', duration: 4, octave: 4 },
+        { id: crypto.randomUUID(), notes: ['C4', 'E4', 'G4', 'B4'], duration: 4 }, // Cmaj7
+        { id: crypto.randomUUID(), notes: ['A3', 'C4', 'E4', 'G4'], duration: 4 }, // Am7
+        { id: crypto.randomUUID(), notes: ['D4', 'F4', 'A4', 'C5'], duration: 4 }, // Dm7
+        { id: crypto.randomUUID(), notes: ['G4', 'B4', 'D5', 'F5'], duration: 4 }, // G7
     ]);
     const [progressionHistory, setProgressionHistory] = useState<Chord[][]>([]);
     const [selectedChordId, setSelectedChordId] = useState<string | null>(null);
@@ -76,16 +76,12 @@ const Composer = () => {
 
     }, [selectedChordId, progression]);
 
-    const noteRange = useMemo(() => {
-        return getProgressionNoteRange(progression);
-    }, [progression]);
-
     const exhaustiveSuggestions = useMemo(() => {
         const contextChord = selectionContext 
             ? selectionContext
             : progression.length > 0 ? progression[progression.length - 1] : null;
 
-        const contextChordName = contextChord && contextChord.name !== 'Rest' ? contextChord.name : null;
+        const contextChordName = contextChord && contextChord.notes.length > 0 ? detectChordFromNotes(contextChord.notes) : null;
 
         const categorized = getSuggestionsForChord(contextChordName, musicalKey, musicalMode);
         const patterns = contextChordName
@@ -248,9 +244,8 @@ const Composer = () => {
             if (newChordNames.length > 0) {
                 const newChords = newChordNames.map(name => ({
                     id: crypto.randomUUID(),
-                    name,
+                    notes: getChordNotesWithOctaves(name, 4),
                     duration: 4,
-                    octave: 4,
                 }));
     
                 setTempo(newTempo);
@@ -264,14 +259,17 @@ const Composer = () => {
             let currentContextChord: Chord | null = progression[progression.length - 1];
 
             for (let i = 0; i < 4; i++) {
-                if (!currentContextChord || currentContextChord.name === 'Rest') break;
+                if (!currentContextChord || currentContextChord.notes.length === 0) break;
 
-                const suggestions = getSuggestionsForChord(currentContextChord.name, musicalKey, musicalMode);
+                const currentContextChordName = detectChordFromNotes(currentContextChord.notes);
+                if (!currentContextChordName) break;
+
+                const suggestions = getSuggestionsForChord(currentContextChordName, musicalKey, musicalMode);
                 let candidateChords = suggestions.coherent;
 
                 if (candidateChords.length === 0) {
                     const diatonicChords = getDiatonicChords(musicalKey, musicalMode).map(c => c.name);
-                    candidateChords = diatonicChords.filter(c => c !== currentContextChord!.name);
+                    candidateChords = diatonicChords.filter(c => c !== currentContextChordName);
                 }
                 
                 if (candidateChords.length === 0) break;
@@ -280,9 +278,8 @@ const Composer = () => {
                 
                 const newChord: Chord = {
                     id: crypto.randomUUID(),
-                    name: nextChordName,
+                    notes: getChordNotesWithOctaves(nextChordName, 4),
                     duration: 4,
-                    octave: 4,
                 };
 
                 generatedChords.push(newChord);
@@ -309,26 +306,30 @@ const Composer = () => {
     }, [currentlyPlayingChordId, isPlaying, progression.length, setProgressionWithHistory]);
 
     const handleEditChord = useCallback((chord: Partial<Chord> | null) => {
-        setEditingChord(chord || { id: crypto.randomUUID(), octave: 4 });
+        setEditingChord(chord || { id: crypto.randomUUID(), notes: [] });
     
-        // If editing existing chord, find its index. If adding new, index is at the end.
         const chordIndex = chord && chord.id ? progression.findIndex(c => c.id === chord.id) : progression.length;
     
+        // Find Previous Chord (with wraparound)
         let contextChord: Chord | null = null;
-        // Find previous non-rest chord
-        for (let i = chordIndex - 1; i >= 0; i--) {
-            if (progression[i].name !== 'Rest') {
-                contextChord = progression[i];
-                break;
+        if (progression.length > 1) {
+            for (let i = 1; i < progression.length; i++) {
+                const potentialIndex = (chordIndex - i + progression.length) % progression.length;
+                if (progression[potentialIndex]?.notes.length > 0) {
+                    contextChord = progression[potentialIndex];
+                    break;
+                }
             }
         }
     
+        // Find Next Chord (with wraparound)
         let nextChord: Chord | null = null;
-        // Find next non-rest chord (only if editing an existing chord)
-        if (chord && chord.id) {
-            for (let i = chordIndex + 1; i < progression.length; i++) {
-                if (progression[i].name !== 'Rest') {
-                    nextChord = progression[i];
+        if (progression.length > 1) {
+            for (let i = 1; i < progression.length; i++) {
+                const potentialIndex = (chordIndex + i) % progression.length;
+                if (progression[potentialIndex]?.id === chord?.id) continue; // Skip self if adding new
+                if (progression[potentialIndex]?.notes.length > 0) {
+                    nextChord = progression[potentialIndex];
                     break;
                 }
             }
@@ -368,29 +369,11 @@ const Composer = () => {
         setProgressionWithHistory(newProgression);
     }, [setProgressionWithHistory]);
 
-    const handleAddPattern = useCallback((patternChords: string[]) => {
-        const newChords = patternChords.map(name => ({ id: crypto.randomUUID(), name, duration: 4, octave: 4 }));
-        
-        setProgressionWithHistory(currentProgression => {
-            // If we were editing a chord, replace it. Otherwise, append.
-            const editingIndex = currentProgression.findIndex(c => c.id === editingChord?.id);
-            if (editingIndex > -1) {
-                const newProgression = [...currentProgression];
-                newProgression.splice(editingIndex, 1, ...newChords);
-                return newProgression;
-            } else {
-                return [...currentProgression, ...newChords];
-            }
-        });
-        handleCloseModal(); // Close the modal after adding the pattern
-    }, [editingChord, handleCloseModal, setProgressionWithHistory]);
-
     const handleAddChords = useCallback((chordNames: string[]) => {
         const newChords: Chord[] = chordNames.map(name => ({
             id: crypto.randomUUID(),
-            name,
-            duration: 4, // Default duration
-            octave: 4,   // Default octave
+            notes: getChordNotesWithOctaves(name, 4),
+            duration: 4,
         }));
         setProgressionWithHistory(currentProgression => {
             if (selectedChordId) {
@@ -406,9 +389,68 @@ const Composer = () => {
         });
     }, [selectedChordId, setProgressionWithHistory]);
 
-    const suggestionContextChord = useMemo(() => 
-        selectionContext || (progression.length > 0 ? progression[progression.length - 1] : null),
-    [selectionContext, progression]);
+    const handleChordNotesUpdate = useCallback((chordId: string, newNotes: string[]) => {
+        setProgressionWithHistory(currentProgression => {
+            const index = currentProgression.findIndex(c => c.id === chordId);
+            if (index === -1) return currentProgression;
+            const newProgression = [...currentProgression];
+            newProgression[index] = { ...newProgression[index], notes: newNotes };
+            return newProgression;
+        });
+    }, [setProgressionWithHistory]);
+
+    const handleNextInvertChord = useCallback((chordId: string) => {
+        setProgressionWithHistory(currentProgression => {
+            const index = currentProgression.findIndex(c => c.id === chordId);
+            if (index === -1) return currentProgression;
+            
+            const chordToInvert = currentProgression[index];
+            const newNotes = getNextInversion(chordToInvert.notes);
+            
+            const newProgression = [...currentProgression];
+            newProgression[index] = { ...chordToInvert, notes: newNotes };
+            return newProgression;
+        });
+    }, [setProgressionWithHistory]);
+
+    const handlePreviousInvertChord = useCallback((chordId: string) => {
+        setProgressionWithHistory(currentProgression => {
+            const index = currentProgression.findIndex(c => c.id === chordId);
+            if (index === -1) return currentProgression;
+            
+            const chordToInvert = currentProgression[index];
+            const newNotes = getPreviousInversion(chordToInvert.notes);
+            
+            const newProgression = [...currentProgression];
+            newProgression[index] = { ...chordToInvert, notes: newNotes };
+            return newProgression;
+        });
+    }, [setProgressionWithHistory]);
+
+
+    const handlePermuteChord = useCallback((chordId: string) => {
+        setProgressionWithHistory(currentProgression => {
+            const index = currentProgression.findIndex(c => c.id === chordId);
+            if (index === -1) return currentProgression;
+
+            const chordToPermute = currentProgression[index];
+            const newNotes = getPermutedVoicing(chordToPermute.notes);
+            
+            const newProgression = [...currentProgression];
+            newProgression[index] = { ...chordToPermute, notes: newNotes };
+            return newProgression;
+        });
+    }, [setProgressionWithHistory]);
+
+
+    const suggestionContextChord = useMemo(() => {
+        const chord = selectionContext || (progression.length > 0 ? progression[progression.length - 1] : null)
+        if (!chord) return null;
+        return {
+            name: detectChordFromNotes(chord.notes),
+            notes: chord.notes,
+        }
+    }, [selectionContext, progression]);
 
     return (
         <div className="composer">
@@ -484,8 +526,13 @@ const Composer = () => {
                     currentlyPlayingChordId={currentlyPlayingChordId}
                     onRemoveChord={handleRemoveChord}
                     onReorderProgression={handleReorderProgression}
+                    onNextInvertChord={handleNextInvertChord}
+                    onPreviousInvertChord={handlePreviousInvertChord}
+                    onPermuteChord={handlePermuteChord}
                     isNoteVisualizerVisible={isNoteVisualizerVisible}
-                    noteRange={noteRange}
+                    onChordNotesUpdate={handleChordNotesUpdate}
+                    musicalKey={musicalKey}
+                    musicalMode={musicalMode}
                 />
             </div>
             
@@ -525,7 +572,6 @@ const Composer = () => {
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
                 onSave={handleSaveChord}
-                onAddPattern={handleAddPattern}
                 chord={editingChord}
                 musicalKey={musicalKey}
                 musicalMode={musicalMode}

@@ -19,11 +19,57 @@ export const modes: string[] = [
 ];
 
 /**
- * Returns a consistently abbreviated name for a chord by reconstructing it from
- * Tonal's tonic and type properties. This ensures "Cdim" is used instead of "Co", etc.
- * The root note is lowercased to match user request (e.g., "bm7").
+ * Detects the most likely chord from a set of notes, ensuring the result is valid.
+ * @param notes An array of note names (e.g., ['C4', 'E4', 'G4']).
+ * @returns The detected chord symbol (e.g., 'C') or null if no valid chord is detected.
+ */
+export const detectChordFromNotes = (notes: string[]): string | null => {
+    // A chord needs at least two notes to be detected.
+    if (notes.length < 2) {
+        return null;
+    }
+
+    // Tonal.Chord.detect works best with pitch classes, so we remove the octave info.
+    const pitchClasses = notes.map(Note.pitchClass);
+    const detectedChords = Chord.detect(pitchClasses);
+
+    if (detectedChords.length === 0) {
+        return null;
+    }
+
+    // Find the first detected chord name that Tonal can fully parse.
+    // This ensures compatibility with the rest of the app's functions.
+    for (const chordName of detectedChords) {
+        const chordInfo = Chord.get(chordName);
+        if (!chordInfo.empty && chordInfo.tonic) {
+            // It's a valid, parsable chord. Return its standardized symbol.
+            return chordInfo.symbol;
+        }
+    }
+
+    // If no detected chords could be parsed by Chord.get(), return null.
+    return null;
+};
+
+/**
+ * Gets an abbreviated display name (e.g. "Cmaj7" or "Rest") from an array of notes.
+ * @param notes An array of note names.
+ * @returns The detected chord symbol or a fallback.
+ */
+export const getAbbreviatedNameFromNotes = (notes: string[]): string => {
+    if (!notes || notes.length === 0) return "Rest";
+    const detectedName = detectChordFromNotes(notes);
+    if (!detectedName) {
+        return notes.map(n => Note.pitchClass(n)).join('-');
+    }
+    return detectedName;
+};
+
+/**
+ * Returns a consistently abbreviated name for a chord by returning its canonical symbol from Tonal.js
+ * This ensures that names are always valid for the library (e.g., "Cmaj7", not "cmaj7").
  * @param chordName The chord name to abbreviate.
- * @returns The abbreviated chord name.
+ * @returns The abbreviated and valid chord name.
  */
 export const getAbbreviatedChordName = (chordName: string): string => {
     if (!chordName || chordName === 'Rest') {
@@ -34,16 +80,10 @@ export const getAbbreviatedChordName = (chordName: string): string => {
         return chordName; // Return original if not recognized
     }
 
-    const displayTonic = chordInfo.tonic.toLowerCase();
-    let displayType = chordInfo.type;
-    
-    // For major triads, Tonal's `type` is 'M'. To avoid ambiguity with minor ('m'),
-    // we'll explicitly use 'maj' for major triads, following the lowercase root convention.
-    if (displayType === 'M') {
-        displayType = 'maj';
-    }
-    
-    return displayTonic + displayType;
+    // The .symbol property from Tonal.js is the most reliable and canonical representation.
+    // e.g., for "C Major", it gives "C"; for "A minor seventh", it gives "Am7".
+    // This avoids manual string concatenation that could create invalid names.
+    return chordInfo.symbol;
 };
 
 
@@ -94,73 +134,166 @@ export const getDisplayChordName = (chordName: string, octave?: number): string 
 };
 
 /**
- * Calculates the next or previous inversion of a chord.
- * @param chordName The name of the chord (e.g., 'Cmaj7', 'Cmaj7/E').
- * @param direction 'up' for the next inversion, 'down' for the previous.
- * @returns The new chord name representing the inverted chord.
+ * Builds a musically valid, ascending chord voicing from a given bass note and the pitch classes of the upper voices.
+ * @param bassNote The starting note of the chord (e.g., 'C4').
+ * @param upperPitchClasses An array of the pitch classes for the other notes in a specific order (e.g., ['G', 'B', 'E']).
+ * @returns A new array of notes forming an ascending chord voicing (e.g., ['C4', 'G4', 'B4', 'E5']).
  */
-export const invertChord = (chordName: string, direction: 'up' | 'down'): string => {
-    if (!chordName || chordName === 'Rest') return chordName;
+export const buildAscendingVoicing = (bassNote: string, upperPitchClasses: string[]): string[] => {
+    let currentMidi = Note.midi(bassNote);
+    if (currentMidi === null) return [];
 
-    const chordInfo = Chord.get(chordName);
-    if (chordInfo.empty) return chordName;
+    const results: string[] = [bassNote];
+    
+    for (const pc of upperPitchClasses) {
+        let nextOctave = Note.octave(Note.fromMidi(currentMidi)) || 4;
+        let nextNoteMidi = Note.midi(`${pc}${nextOctave}`);
 
-    // Get the notes in root position to determine the inversion cycle
-    const rootPositionChord = Chord.get(chordInfo.tonic + chordInfo.type);
-    const notesInOrder = rootPositionChord.notes;
-    if (notesInOrder.length <= 1) return chordName;
+        // Ensure notes always ascend by incrementing octave if needed
+        while (nextNoteMidi !== null && nextNoteMidi <= currentMidi) {
+            nextOctave++;
+            nextNoteMidi = Note.midi(`${pc}${nextOctave}`);
+        }
 
-    const currentBass = chordInfo.root || chordInfo.tonic;
-    const currentInversionIndex = notesInOrder.indexOf(currentBass as string);
-
-    if (currentInversionIndex === -1) return chordName; // Should not happen
-
-    let nextInversionIndex;
-    if (direction === 'up') {
-        nextInversionIndex = (currentInversionIndex + 1) % notesInOrder.length;
-    } else {
-        nextInversionIndex = (currentInversionIndex - 1 + notesInOrder.length) % notesInOrder.length;
+        if (nextNoteMidi !== null) {
+            results.push(Note.fromMidi(nextNoteMidi));
+            currentMidi = nextNoteMidi;
+        }
     }
-
-    if (nextInversionIndex === 0) {
-        return rootPositionChord.symbol; // Back to root position
-    } else {
-        const newBass = notesInOrder[nextInversionIndex];
-        return `${rootPositionChord.symbol}/${newBass}`;
-    }
+    return results;
 };
 
 /**
- * Selects a random inversion for the given chord, ensuring it's different from the current one.
- * @param chordName The name of the chord.
- * @returns A new chord name representing a random inversion.
+ * Calculates the next or previous inversion of a chord by manipulating the note array directly.
+ * This method is designed to be perfectly reversible, so that applying an ascending inversion
+ * followed by a descending inversion returns the chord to its original state.
+ * It works by finding the next appropriate chord tone (up or down) and rebuilding the voicing
+ * around it, keeping the chord in a musically similar register.
+ * For non-standard chords that cannot be identified by Tonal.js, it falls back to a
+ * simple rotational inversion (moving the bass note up an octave, or the top note down).
+ *
+ * @param notes The array of notes in the current chord voicing (e.g., ['C4', 'E4', 'G4']).
+ * @param direction Whether to find the next inversion ('up') or the previous one ('down').
+ * @returns A new array of notes representing the inverted chord.
  */
-export const randomlyInvertChord = (chordName: string): string => {
-    if (!chordName || chordName === 'Rest') return chordName;
+const getInversion = (notes: string[], direction: 'up' | 'down'): string[] => {
+    // A chord needs at least two notes to be inverted.
+    if (notes.length < 2) return notes;
 
-    const chordInfo = Chord.get(chordName);
-    if (chordInfo.empty) return chordName;
+    // Sort notes by MIDI value to reliably determine the bass and top notes.
+    const sortedNotes = notes.slice().sort((a, b) => (Note.midi(a) || 0) - (Note.midi(b) || 0));
+    const bassNote = sortedNotes[0];
+    const bassNoteMidi = Note.midi(bassNote);
+    const topNote = sortedNotes[sortedNotes.length - 1];
 
-    const rootPositionChord = Chord.get(chordInfo.tonic + chordInfo.type);
-    const notes = rootPositionChord.notes;
-    if (notes.length <= 1) return chordName;
+    // Try to identify the chord to perform a musically-aware inversion.
+    const detectedName = detectChordFromNotes(notes);
 
-    const currentBass = chordInfo.root || chordInfo.tonic;
-    const currentInversionIndex = notes.indexOf(currentBass as string);
-    if (currentInversionIndex === -1) return chordName;
-
-    let randomIndex;
-    do {
-        randomIndex = Math.floor(Math.random() * notes.length);
-    } while (notes.length > 1 && randomIndex === currentInversionIndex);
-    
-    if (randomIndex === 0) {
-        return rootPositionChord.symbol;
-    } else {
-        const newBass = notes[randomIndex];
-        return `${rootPositionChord.symbol}/${newBass}`;
+    // --- Fallback for non-standard chords ---
+    // If Tonal.js can't detect the chord, we perform a simple rotational inversion.
+    if (!detectedName) {
+        if (direction === 'up') {
+            // Ascending: Move the bass note up an octave and place it at the top.
+            const upperNotes = sortedNotes.slice(1);
+            const newTopNote = Note.transpose(bassNote, 'P8'); // P8 = Perfect Octave
+            return newTopNote ? [...upperNotes, newTopNote] : notes;
+        } else { // 'down'
+            // Descending: Move the top note down an octave and place it at the bottom.
+            const bottomNotes = sortedNotes.slice(0, -1);
+            const newBottomNote = Note.transpose(topNote, '-P8'); // -P8 = Descending Perfect Octave
+            return newBottomNote ? [newBottomNote, ...bottomNotes] : notes;
+        }
     }
+
+    // --- Standard Inversion Logic ---
+    const chordInfo = Chord.get(detectedName);
+    // Get the pitch classes of the chord in root position (e.g., Cmaj7 -> ['C', 'E', 'G', 'B'])
+    const rootPositionPitchClasses = chordInfo.notes;
+    const currentBassPitchClass = Note.pitchClass(bassNote);
+    
+    const currentInversionIndex = rootPositionPitchClasses.indexOf(currentBassPitchClass);
+    // If the current bass note isn't a chord tone, we can't do a standard inversion.
+    // This is unlikely if detectChordFromNotes worked, but it's a safe fallback.
+    if (currentInversionIndex === -1) {
+        // Re-use the rotational inversion fallback.
+        return getInversion(notes, direction); 
+    }
+    
+    const numNotes = rootPositionPitchClasses.length;
+    const change = direction === 'up' ? 1 : -1;
+    // Cycle to the next/previous chord tone in the root position list.
+    const nextInversionIndex = (currentInversionIndex + change + numNotes) % numNotes;
+    const newBassPitchClass = rootPositionPitchClasses[nextInversionIndex];
+    
+    // Find the specific instance (with octave) of the new bass note that is
+    // closest to the old bass note in the desired direction.
+    let newBassNote: string;
+    if (direction === 'up') {
+        // Find the first note with the new pitch class that is higher than the old bass note.
+        let octave = Note.octave(bassNote) || 4;
+        let tempMidi = Note.midi(`${newBassPitchClass}${octave}`);
+        while (tempMidi !== null && bassNoteMidi !== null && tempMidi <= bassNoteMidi) {
+            octave++;
+            tempMidi = Note.midi(`${newBassPitchClass}${octave}`);
+        }
+        newBassNote = `${newBassPitchClass}${octave}`;
+    } else { // 'down'
+        // Find the first note with the new pitch class that is lower than the old bass note.
+        let octave = Note.octave(bassNote) || 4;
+        let tempMidi = Note.midi(`${newBassPitchClass}${octave}`);
+        while (tempMidi !== null && bassNoteMidi !== null && tempMidi >= bassNoteMidi) {
+            octave--;
+            tempMidi = Note.midi(`${newBassPitchClass}${octave}`);
+        }
+        newBassNote = `${newBassPitchClass}${octave}`;
+    }
+    
+    // Re-order the root pitch classes to start from our new bass note.
+    // This gives us the correct order for the upper voices.
+    const reorderedRootPcs = [
+        ...rootPositionPitchClasses.slice(nextInversionIndex), 
+        ...rootPositionPitchClasses.slice(0, nextInversionIndex)
+    ];
+    // The remaining notes are our upper voices.
+    const upperPitchClasses = reorderedRootPcs.slice(1);
+
+    // Build the final ascending voicing from our new calculated bass note.
+    return buildAscendingVoicing(newBassNote, upperPitchClasses);
 };
+
+export const getNextInversion = (notes: string[]): string[] => getInversion(notes, 'up');
+export const getPreviousInversion = (notes: string[]): string[] => getInversion(notes, 'down');
+
+const shuffle = <T>(array: T[]): T[] => {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+};
+
+export const getPermutedVoicing = (notes: string[]): string[] => {
+    if (notes.length < 3) return notes;
+
+    const sortedNotes = notes.slice().sort((a, b) => (Note.midi(a) || 0) - (Note.midi(b) || 0));
+    const bassNote = sortedNotes[0];
+    const upperNotes = sortedNotes.slice(1);
+    const originalUpperPitchClasses = upperNotes.map(n => Note.pitchClass(n));
+
+    let shuffledUpperPitchClasses;
+    let attempts = 0;
+    const maxAttempts = 10; 
+    do {
+        shuffledUpperPitchClasses = shuffle([...originalUpperPitchClasses]);
+        attempts++;
+    } while (
+        shuffledUpperPitchClasses.every((pc, i) => pc === originalUpperPitchClasses[i]) &&
+        attempts < maxAttempts
+    );
+
+    return buildAscendingVoicing(bassNote, shuffledUpperPitchClasses);
+};
+
 
 /**
  * Generates an array of notes with correct octaves for a given chord symbol and bass octave.

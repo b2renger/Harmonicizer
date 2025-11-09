@@ -1,6 +1,7 @@
 import { Chord, Scale, Note, Mode } from 'tonal';
 import type { Chord as ChordType } from '../modes/composer/Composer';
 import { getRomanNumeralForChord, COMMON_PATTERNS, getChordFromRomanNumeral, getDiatonicChords, getBorrowedChords, getChordNotesWithOctaves } from './harmony';
+import { detectChordFromNotes } from './chords';
 
 /**
  * A robust method for checking common notes between chords, accounting for octaves.
@@ -191,41 +192,6 @@ export const getPatternSuggestionsForChord = (contextChordName: string, musicalK
 };
 
 /**
- * Analyzes a chord progression to find the minimum and maximum MIDI notes.
- * @param progression An array of Chord objects.
- * @returns An object with minMidi and maxMidi, or null if progression is empty.
- */
-export const getProgressionNoteRange = (progression: ChordType[]): { minMidi: number; maxMidi: number } | null => {
-    if (progression.length === 0) {
-        return null;
-    }
-
-    let minMidi = Infinity;
-    let maxMidi = -Infinity;
-
-    for (const chord of progression) {
-        if (chord.name === 'Rest') continue;
-
-        // We need to import or have access to getChordNotesWithOctaves
-        const notes = getChordNotesWithOctaves(chord.name, chord.octave);
-        for (const noteName of notes) {
-            const midi = Note.midi(noteName);
-            if (midi !== null) {
-                if (midi < minMidi) minMidi = midi;
-                if (midi > maxMidi) maxMidi = midi;
-            }
-        }
-    }
-
-    if (minMidi === Infinity || maxMidi === -Infinity) {
-        // This case handles progressions with only invalid chords
-        return null;
-    }
-
-    return { minMidi, maxMidi };
-};
-
-/**
  * Analyzes a chord progression for frequency, common patterns, and suggestions.
  * @param progression An array of Chord objects.
  * @param musicalKey The tonic of the key.
@@ -233,16 +199,19 @@ export const getProgressionNoteRange = (progression: ChordType[]): { minMidi: nu
  * @returns An object with full analysis.
  */
 export const analyzeProgression = (progression: ChordType[], musicalKey: string, musicalMode: string) => {
-    const validChords = progression.filter(c => c.name !== 'Rest');
+    const validChords = progression.filter(c => c.notes.length > 0);
+    const validChordNames = validChords.map(c => detectChordFromNotes(c.notes) || 'Unknown');
 
     // Frequency Analysis
-    const chordFrequency = validChords.reduce((acc, chord) => {
-        acc[chord.name] = (acc[chord.name] || 0) + 1;
+    const chordFrequency = validChordNames.reduce((acc, name) => {
+        if (name !== 'Unknown') {
+            acc[name] = (acc[name] || 0) + 1;
+        }
         return acc;
     }, {} as Record<string, number>);
 
     // Pattern Detection
-    const romanProgression = validChords.map(chord => getRomanNumeralForChord(chord.name, musicalKey, musicalMode));
+    const romanProgression = validChordNames.map(name => getRomanNumeralForChord(name, musicalKey, musicalMode));
     const detectedPatterns: { name: string; chords: string[] }[] = [];
     const uniquePatterns = new Set<string>(); // To avoid duplicate pattern messages
 
@@ -261,7 +230,7 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
                 if (simplifiedSlice.some(r => r === null)) continue;
 
                 if (JSON.stringify(simplifiedSlice) === JSON.stringify(patternSequence)) {
-                    const chordsInPattern = validChords.slice(i, i + patternSequence.length).map(c => c.name);
+                    const chordsInPattern = validChordNames.slice(i, i + patternSequence.length);
                     const patternKey = `${patternName}-${chordsInPattern.join(',')}`;
                     
                     if (!uniquePatterns.has(patternKey)) {
@@ -283,14 +252,15 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
     let transitions = 0;
 
     if (validChords.length > 0) {
-        validChords.forEach(chord => {
-            totalComplexity += getChordComplexityScore(chord.name);
-            totalTension += getChordTensionScore(chord.name);
+        validChordNames.forEach(name => {
+            if (name === 'Unknown') return;
+            totalComplexity += getChordComplexityScore(name);
+            totalTension += getChordTensionScore(name);
         });
 
         if (validChords.length > 1) {
-            for (let i = 0; i < validChords.length - 1; i++) {
-                totalCommonTones += calculateConsonance(validChords[i].name, validChords[i+1].name);
+            for (let i = 0; i < validChordNames.length - 1; i++) {
+                totalCommonTones += calculateConsonance(validChordNames[i], validChordNames[i+1]);
                 transitions++;
             }
         }

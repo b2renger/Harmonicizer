@@ -12,8 +12,13 @@ interface ChordGridProps {
     currentlyPlayingChordId: string | null;
     onRemoveChord: (id: string) => void;
     onReorderProgression: (newProgression: Chord[]) => void;
+    onNextInvertChord: (chordId: string) => void;
+    onPreviousInvertChord: (chordId: string) => void;
+    onPermuteChord: (chordId: string) => void;
     isNoteVisualizerVisible: boolean;
-    noteRange: { minMidi: number; maxMidi: number } | null;
+    onChordNotesUpdate: (chordId: string, newNotes: string[]) => void;
+    musicalKey: string;
+    musicalMode: string;
 }
 
 const ChordGrid: React.FC<ChordGridProps> = ({ 
@@ -24,8 +29,13 @@ const ChordGrid: React.FC<ChordGridProps> = ({
     currentlyPlayingChordId, 
     onRemoveChord, 
     onReorderProgression,
+    onNextInvertChord,
+    onPreviousInvertChord,
+    onPermuteChord,
     isNoteVisualizerVisible,
-    noteRange,
+    onChordNotesUpdate,
+    musicalKey,
+    musicalMode,
 }) => {
     const [draggedChordId, setDraggedChordId] = useState<string | null>(null);
     const [dragOverChordId, setDragOverChordId] = useState<string | null>(null);
@@ -101,23 +111,26 @@ const ChordGrid: React.FC<ChordGridProps> = ({
                 >
                     <ChordCard 
                         chordId={chord.id}
-                        name={chord.name} 
+                        notes={chord.notes}
                         duration={chord.duration}
-                        octave={chord.octave}
                         onEdit={() => onEditChord(chord)}
                         onSelect={onSelectChord}
                         isSelected={selectedChordId === chord.id}
                         isPlaying={currentlyPlayingChordId === chord.id}
                         onRemove={onRemoveChord}
+                        onNextInvert={() => onNextInvertChord(chord.id)}
+                        onPreviousInvert={() => onPreviousInvertChord(chord.id)}
+                        onPermute={() => onPermuteChord(chord.id)}
                         // Drag and Drop props
                         onDragStart={(e) => handleDragStart(e, chord.id)}
                         onDragEnd={handleDragEnd}
                     />
-                    {isNoteVisualizerVisible && chord.name !== 'Rest' && noteRange && (
+                    {isNoteVisualizerVisible && (
                         <VerticalNoteVisualizer 
-                            chordName={chord.name}
-                            chordOctave={chord.octave}
-                            noteRange={noteRange}
+                            notes={chord.notes}
+                            onNotesChange={(newNotes) => onChordNotesUpdate(chord.id, newNotes)}
+                            musicalKey={musicalKey}
+                            musicalMode={musicalMode}
                         />
                     )}
                 </div>

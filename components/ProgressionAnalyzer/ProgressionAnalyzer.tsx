@@ -1,6 +1,6 @@
 import React from 'react';
 import './ProgressionAnalyzer.css';
-import { getDisplayChordName } from '../../theory/chords';
+import { getDisplayChordName, getAbbreviatedNameFromNotes } from '../../theory/chords';
 import type { Chord } from '../../modes/composer/Composer';
 import type { getSuggestionsForChord, getPatternSuggestionsForChord } from '../../theory/analysis';
 
@@ -19,6 +19,11 @@ interface AnalysisResults {
     };
 }
 
+interface SuggestionContextChord {
+    name: string | null;
+    notes: string[];
+}
+
 interface ProgressionAnalyzerProps {
     analysis: AnalysisResults;
     onAddChords: (chords: string[]) => void;
@@ -26,7 +31,7 @@ interface ProgressionAnalyzerProps {
         categorized: ReturnType<typeof getSuggestionsForChord>;
         patterns: ReturnType<typeof getPatternSuggestionsForChord>;
     };
-    suggestionContextChord: Chord | null;
+    suggestionContextChord: SuggestionContextChord | null;
 }
 
 const SuggestionCategory: React.FC<{ title: string; chords: string[]; onAdd: (name: string) => void }> = ({ title, chords, onAdd }) => {
@@ -165,8 +170,8 @@ const ProgressionAnalyzer: React.FC<ProgressionAnalyzerProps> = ({
 
                     <h4 className="suggestion-header">
                         Next Chord Ideas
-                        {suggestionContextChord && suggestionContextChord.name !== 'Rest' && (
-                            <span className="suggestion-context"> after {getDisplayChordName(suggestionContextChord.name)}</span>
+                        {suggestionContextChord && suggestionContextChord.notes.length > 0 && (
+                            <span className="suggestion-context"> after {getAbbreviatedNameFromNotes(suggestionContextChord.notes)}</span>
                         )}
                     </h4>
                     {!hasSuggestions ? (
