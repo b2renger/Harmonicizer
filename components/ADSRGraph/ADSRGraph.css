@@ -1,0 +1,102 @@
+.adsr-graph-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    min-height: 200px;
+}
+
+.adsr-svg {
+    width: 100%;
+    height: auto;
+    background-color: #000;
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
+.adsr-path {
+    fill: none;
+    stroke: #4facfe;
+    stroke-width: 4;
+    stroke-linejoin: round;
+}
+
+.adsr-point {
+    fill: #1e1e1e;
+    stroke-width: 3;
+    pointer-events: none; /* Visible points don't capture events */
+}
+
+.adsr-point-handle {
+    fill: transparent;
+    cursor: grab;
+    transition: r 0.2s ease;
+}
+
+.adsr-point-handle:active {
+    cursor: grabbing;
+}
+
+.adsr-point.attack {
+    stroke: #ff8a00;
+}
+.adsr-point.decay {
+    stroke: #e52e71;
+}
+.adsr-point.release {
+    stroke: #9b59b6;
+}
+
+.adsr-labels {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    width: 100%;
+    background-color: #111;
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+.adsr-label {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.adsr-label > span {
+    font-size: 0.8rem;
+    color: #a0a0a0;
+    text-transform: uppercase;
+}
+
+.adsr-label > div {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 0.25rem;
+}
+
+.adsr-input {
+    background-color: transparent;
+    border: none;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    text-align: right;
+    width: 50px;
+    padding: 0.1rem;
+    border-radius: 2px;
+    transition: background-color 0.2s ease;
+    font-family: 'Poppins', sans-serif;
+}
+.adsr-input:focus {
+    background-color: #000;
+    outline: 1px solid #ff8a00;
+}
+
+.adsr-label > div > span {
+    font-size: 0.8rem;
+    color: #a0a0a0;
+}

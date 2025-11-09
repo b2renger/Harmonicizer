@@ -253,9 +253,8 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
         return acc;
     }, {} as Record<string, number>);
 
-    // Richness Analysis
+    // Richness & Consonance Analysis
     let totalComplexity = 0;
-    let totalTension = 0;
     let totalCommonTones = 0;
     let transitions = 0;
 
@@ -263,7 +262,6 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
         validChordNames.forEach(name => {
             if (name === 'Unknown') return;
             totalComplexity += getChordComplexityScore(name);
-            totalTension += getChordTensionScore(name);
         });
 
         if (validChords.length > 1) {
@@ -275,29 +273,26 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
     }
 
     const avgComplexity = validChords.length > 0 ? totalComplexity / validChords.length : 0; // Range 0-3
-    const avgTension = validChords.length > 0 ? totalTension / validChords.length : 0; // Range 0-3
     const avgSmoothness = transitions > 0 ? totalCommonTones / transitions : 0; // Range 0-4 approx
 
-    const complexityScore = (avgComplexity / 3) * 100;
-    const tensionScore = (avgTension / 3) * 100;
-    const smoothnessScore = (avgSmoothness / 4) * 100;
+    const richnessScore = Math.round((avgComplexity / 3) * 100);
+    const consonanceScore = Math.round((avgSmoothness / 4) * 100);
     
-    const overallScore = Math.round((complexityScore + tensionScore + smoothnessScore) / 3);
-
-    const tags: string[] = [];
-    if (avgComplexity > 2.2) tags.push('Jazzy & Complex');
-    else if (avgComplexity > 1.5) tags.push('Rich Harmonies');
-    else tags.push('Simple & Direct');
-
-    if (avgTension > 1.8) tags.push('High Tension');
-    else if (avgTension < 1.2) tags.push('Relaxed & Stable');
-
-    if (avgSmoothness > 2) tags.push('Smooth Voice Leading');
-    else if (avgSmoothness < 1 && validChords.length > 1) tags.push('Leaping Motion');
+    const richnessTags: string[] = [];
+    if (avgComplexity > 2.2) richnessTags.push('Jazzy & Complex');
+    else if (avgComplexity > 1.5) richnessTags.push('Rich Harmonies');
+    else richnessTags.push('Simple & Direct');
     
-    const richnessAnalysis = {
-        score: isNaN(overallScore) ? 0 : overallScore,
-        tags: tags
+    const consonanceTags: string[] = [];
+    if (avgSmoothness > 2) consonanceTags.push('Smooth Voice Leading');
+    else if (avgSmoothness < 1 && validChords.length > 1) consonanceTags.push('Leaping Motion');
+    else consonanceTags.push('Moderate Motion');
+    
+    const analysis = {
+        richnessScore: isNaN(richnessScore) ? 0 : richnessScore,
+        consonanceScore: isNaN(consonanceScore) ? 0 : consonanceScore,
+        richnessTags,
+        consonanceTags,
     };
     
     // Hints
@@ -319,5 +314,5 @@ export const analyzeProgression = (progression: ChordType[], musicalKey: string,
     // The new approach focuses on contextual theory rather than retrospective pattern matching.
     const detectedPatterns: any[] = []; 
 
-    return { chordFrequency, detectedPatterns, richnessAnalysis, hints };
+    return { chordFrequency, detectedPatterns, analysis, hints };
 };
