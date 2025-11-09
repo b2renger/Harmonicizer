@@ -500,7 +500,7 @@ const Composer = () => {
             </div>
             
             <div className="analysis-effects-container">
-                <CollapsibleSection title="Harmonic Analysis" defaultOpen={true}>
+                <CollapsibleSection title="Harmonic Analysis" defaultOpen={false}>
                     <ProgressionAnalyzer 
                         analysis={analysisResults} 
                         onAddChords={handleAddChords}

@@ -1,3 +1,19 @@
+
+TODO
+- make it work to be served from github pages  and used as a pwa
+- move order of each section in the main interface
+- revamp synth and arpegiator section
+  -fix hotswappin synth
+	- prevent scrolling when manipulatng adsr (needs check on mobile)
+	- add a tap delay synched to the bpm
+	- check synth control that are actually realtime
+
+- add a performance section to improvize melodies
+- export / import in json
+
+
+--
+
 I want to buil a web app called Harmonicizer. 
 
 The goal is to create and compose musical chord progression and to explore it.

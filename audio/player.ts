@@ -1,3 +1,4 @@
+
 import * as Tone from 'tone';
 import { FMSynth, MonoSynth, AMSynth, Synth, PolySynthOptions, SynthOptions } from 'tone';
 import { RecursivePartial } from 'tone/build/esm/core/util/Interface';
@@ -26,6 +27,9 @@ export class Player {
         this.arpeggiatorRepeats = Infinity;
         this.progression = [];
         this.currentSynthType = 'Rhodes';
+        
+        // Set initial loop state on transport
+        Tone.Transport.loop = true;
     }
 
     playOneShot(notes: string[]) {
@@ -51,43 +55,34 @@ export class Player {
     stop() {
         Tone.Transport.stop();
         this.synth.releaseAll();
+        // Reset transport position and part state.
         Tone.Transport.position = 0;
-        if(this.part) {
-            this.part.stop(0);
-            this.part.start(0);
-        }
+        this.part?.stop(0); 
         this.onTick(null);
     }
-
-    setProgression(progression: any[]) {
-        const wasPlaying = Tone.Transport.state === 'started';
-        const currentPosition = Tone.Transport.position;
-
-        if (wasPlaying) {
-            Tone.Transport.pause();
-        }
-
-        this.progression = progression;
+    
+    // NEW private method for rebuilding the schedule
+    _rebuildPart() {
+        // 1. Clean up existing part
         if (this.part) {
             this.part.clear();
             this.part.dispose();
             this.part = null;
         }
 
-        if (progression.length === 0) {
+        // 2. Handle empty progression
+        if (this.progression.length === 0) {
             Tone.Transport.loopEnd = 0;
             this.onTick(null);
-            if (wasPlaying) {
-                this.stop();
-            }
             return;
         }
 
+        // 3. Build events array
         const allEvents: any[] = [];
         let accumulatedBeats = 0;
         const timeSignature = 4;
 
-        for (const chord of progression) {
+        for (const chord of this.progression) {
             const bars = Math.floor(accumulatedBeats / timeSignature);
             const beats = accumulatedBeats % timeSignature;
             const eventStart = `${bars}:${beats}:0`;
@@ -96,22 +91,24 @@ export class Player {
             const notes = chord.notes;
 
             if (notes.length === 0) {
-                allEvents.push({ time: eventStart, id: chord.id, duration: chordDurationInBeats });
+                 allEvents.push({ time: eventStart, id: chord.id, noteDuration: chordDurationInBeats });
                 accumulatedBeats += chordDurationInBeats;
                 continue;
             }
 
             if (this.isArpeggiatorActive) {
                 const arpeggioTimingAsSeconds = Tone.Time(this.arpeggiatorTiming).toSeconds();
-                const beatDuration = 60 / Tone.Transport.bpm.value;
-                const arpeggioTimingInBeats = arpeggioTimingAsSeconds / beatDuration;
+                const beatDurationInSeconds = 60 / Tone.Transport.bpm.value;
+                const arpeggioTimingInBeats = arpeggioTimingAsSeconds / beatDurationInSeconds;
                 
                 if (arpeggioTimingInBeats <= 0) {
                     accumulatedBeats += chordDurationInBeats;
                     continue;
                 }
 
-                const finalNoteDuration = Math.max(arpeggioTimingAsSeconds * 0.8, 0.05);
+                const finalNoteDurationInSeconds = Math.max(arpeggioTimingAsSeconds * 0.8, 0.05);
+                const finalNoteDurationInBeats = finalNoteDurationInSeconds / beatDurationInSeconds;
+                
                 const chordStartBeats = accumulatedBeats;
                 const chordEndBeats = chordStartBeats + chordDurationInBeats;
 
@@ -132,7 +129,7 @@ export class Player {
                     allEvents.push({
                         time: noteTimeNotation,
                         note: note,
-                        duration: finalNoteDuration,
+                        noteDuration: finalNoteDurationInBeats,
                         id: chord.id,
                     });
                     
@@ -145,18 +142,21 @@ export class Player {
                 allEvents.push({
                     time: eventStart,
                     notes: notes,
-                    duration: chordDurationInBeats,
+                    noteDuration: chordDurationInBeats,
                     id: chord.id,
                 });
                 accumulatedBeats += chordDurationInBeats;
             }
         }
 
+        // 4. Create and configure the new part
         this.part = new Tone.Part((time, value) => {
+            if (typeof value.noteDuration !== 'number') return;
+            const durationInSeconds = (60 / Tone.Transport.bpm.value) * value.noteDuration;
+
             if (value.note) {
-                this.synth.triggerAttackRelease(value.note, value.duration, time);
+                this.synth.triggerAttackRelease(value.note, durationInSeconds, time);
             } else if (value.notes && value.notes.length > 0) {
-                const durationInSeconds = (60 / Tone.Transport.bpm.value) * (value.duration);
                 this.synth.triggerAttackRelease(value.notes, durationInSeconds, time);
             }
             Tone.Draw.schedule(() => {
@@ -164,10 +164,82 @@ export class Player {
             }, time);
         }, allEvents).start(0);
         
+        // 5. Set loop properties
         const totalBars = Math.floor(accumulatedBeats / timeSignature);
         const totalBeatsRemainder = accumulatedBeats % timeSignature;
         Tone.Transport.loopEnd = `${totalBars}:${totalBeatsRemainder}:0`;
+        this.part.loop = false; // The Transport handles looping, not the part itself.
+    }
 
+    setProgression(progression: any[]) {
+        const wasPlaying = Tone.Transport.state === 'started';
+        const currentPosition = Tone.Transport.position;
+
+        if (wasPlaying) {
+            Tone.Transport.pause();
+            this.synth.releaseAll(); // Avoid hanging notes on progression change
+        }
+
+        this.progression = progression;
+        this._rebuildPart();
+
+        if (wasPlaying) {
+            if (this.progression.length === 0) {
+                // If the progression was cleared while playing, stop everything.
+                this.stop();
+            } else {
+                // Resume from where it was.
+                Tone.Transport.start(Tone.now(), currentPosition);
+            }
+        }
+    }
+    
+    setSynth(synthType: string, initialSettings: any) {
+        if (this.currentSynthType === synthType) {
+            return;
+        }
+
+        const wasPlaying = Tone.Transport.state === 'started';
+        const currentPosition = Tone.Transport.position;
+
+        if (wasPlaying) {
+            Tone.Transport.pause();
+        }
+
+        // CRITICAL FIX: Dispose of the Part that schedules events for the old synth *before* disposing the synth itself.
+        // This prevents a race condition where a scheduled event tries to access the already-disposed synth.
+        if (this.part) {
+            this.part.clear();
+            this.part.dispose();
+            this.part = null;
+        }
+        
+        // Now it's safe to release hanging notes and dispose the old synth.
+        this.synth.releaseAll();
+        this.synth.dispose();
+        
+        this.currentSynthType = synthType;
+        const { volume, ...voiceOptions } = initialSettings;
+
+        let voice: any = Tone.Synth;
+        if (synthType === 'Rhodes' || synthType === 'FMSynth' || synthType === 'VCS3Drone' || synthType === 'VCS3FX') {
+            voice = Tone.FMSynth;
+        } else if (synthType === 'MoogLead' || synthType === 'MoogBass') {
+            voice = Tone.MonoSynth;
+        } else if (synthType === 'AMSynth') {
+            voice = Tone.AMSynth;
+        } else if (synthType === 'Synth') {
+            voice = Tone.Synth;
+        }
+
+        this.synth = new Tone.PolySynth(voice, voiceOptions).connect(this.reverb);
+        if (volume !== undefined) {
+            this.synth.volume.value = volume;
+        }
+        
+        // Rebuild the part with the new synth. Since this.part is null, it will just create a new one.
+        this._rebuildPart();
+        
         if (wasPlaying) {
             Tone.Transport.start(Tone.now(), currentPosition);
         }
@@ -204,59 +276,7 @@ export class Player {
         this.synth.set(voiceSettings);
     }
     
-    setSynth(synthType: string, initialSettings: any) {
-        const wasPlaying = Tone.Transport.state === 'started';
-        const currentPosition = Tone.Transport.position;
-
-        if (wasPlaying) {
-            Tone.Transport.pause();
-        }
-        
-        Tone.Transport.cancel(0);
-        
-        if (this.part) {
-            this.part.clear();
-            this.part.dispose();
-            this.part = null;
-        }
-        
-        this.synth.releaseAll();
-        this.synth.dispose();
-        
-        this.currentSynthType = synthType;
-
-        // Separate volume from the voice-specific options
-        const { volume, ...voiceOptions } = initialSettings;
-
-        // FIX: Cast voice to 'any' to avoid constructor signature incompatibility errors
-        let voice: any = Tone.Synth;
-
-        if (synthType === 'Rhodes' || synthType === 'FMSynth' || synthType === 'VCS3Drone' || synthType === 'VCS3FX') {
-            voice = Tone.FMSynth;
-        } else if (synthType === 'MoogLead' || synthType === 'MoogBass') {
-            voice = Tone.MonoSynth;
-        } else if (synthType === 'AMSynth') {
-            voice = Tone.AMSynth;
-        } else if (synthType === 'Synth') {
-            voice = Tone.Synth;
-        }
-
-        this.synth = new Tone.PolySynth(voice, voiceOptions).connect(this.reverb);
-        if (volume !== undefined) {
-            this.synth.volume.value = volume;
-        }
-        
-        this.setProgression(this.progression);
-        
-        if (wasPlaying) {
-            Tone.Transport.start(Tone.now(), currentPosition);
-        }
-    }
-
     setLoop(loop: boolean) {
-        if (this.part) {
-            this.part.loop = loop;
-        }
         Tone.Transport.loop = loop;
     }
 

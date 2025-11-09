@@ -8,7 +8,7 @@ const SUSTAIN_VISUAL_TIME = 1; // a fixed time for the sustain portion in the gr
 
 const ADSRGraph = ({ envelope, onEnvelopeChange }) => {
     const svgRef = useRef(null);
-    const [draggingPoint, setDraggingPoint] = useState(null);
+    const draggingPointRef = useRef(null);
     const [inputValues, setInputValues] = useState({
         attack: (envelope.attack * 1000).toFixed(0),
         decay: (envelope.decay * 1000).toFixed(0),
@@ -81,7 +81,7 @@ const ADSRGraph = ({ envelope, onEnvelopeChange }) => {
     const pathData = `M ${points.p0.x},${points.p0.y} L ${points.p1.x},${points.p1.y} L ${points.p2.x},${points.p2.y} L ${points.p3.x},${points.p3.y} L ${points.p4.x},${points.p4.y}`;
 
     const handleDragMove = useCallback((e) => {
-        if (!draggingPoint) return;
+        if (!draggingPointRef.current) return;
         if ('touches' in e) {
             e.preventDefault();
         }
@@ -94,7 +94,7 @@ const ADSRGraph = ({ envelope, onEnvelopeChange }) => {
         const level = yToLevel(y);
         let newEnvelope = { ...envelope };
 
-        switch (draggingPoint) {
+        switch (draggingPointRef.current) {
             case 'attack':
                 newEnvelope.attack = Math.max(0.01, Math.min(MAX_ATTACK, time));
                 break;
@@ -110,10 +110,10 @@ const ADSRGraph = ({ envelope, onEnvelopeChange }) => {
         }
 
         onEnvelopeChange(newEnvelope);
-    }, [draggingPoint, envelope, onEnvelopeChange, getSVGCoordinates, xToTime, yToLevel, padding, viewBoxWidth]);
+    }, [envelope, onEnvelopeChange, getSVGCoordinates, xToTime, yToLevel, padding, viewBoxWidth]);
 
     const handleDragEnd = useCallback(() => {
-        setDraggingPoint(null);
+        draggingPointRef.current = null;
         document.removeEventListener('mousemove', handleDragMove);
         document.removeEventListener('mouseup', handleDragEnd);
         document.removeEventListener('touchmove', handleDragMove);
@@ -122,7 +122,7 @@ const ADSRGraph = ({ envelope, onEnvelopeChange }) => {
 
     const handleDragStart = (pointName) => (e) => {
         e.preventDefault();
-        setDraggingPoint(pointName);
+        draggingPointRef.current = pointName;
         document.addEventListener('mousemove', handleDragMove);
         document.addEventListener('mouseup', handleDragEnd);
         document.addEventListener('touchmove', handleDragMove, { passive: false });
