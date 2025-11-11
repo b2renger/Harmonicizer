@@ -68,7 +68,7 @@ const DEFAULT_BASIC_SYNTH_SETTINGS = {
  * It manages all application state, handles user interactions, and communicates with the
  * audio player engine.
  */
-const Composer = () => {
+const Composer = ({ screenWidth, screenHeight }) => {
     // --- STATE MANAGEMENT ---
     
     // Core progression data and history for undo functionality
@@ -543,6 +543,8 @@ const Composer = () => {
                     onChordNotesUpdate={handleChordNotesUpdate}
                     musicalKey={musicalKey}
                     musicalMode={musicalMode}
+                    screenWidth={screenWidth}
+                    screenHeight={screenHeight}
                 />
             </div>
             
@@ -553,6 +555,7 @@ const Composer = () => {
                         onAddChords={handleAddChords}
                         suggestions={exhaustiveSuggestions}
                         suggestionContextChord={suggestionContextChord}
+                        screenWidth={screenWidth}
                     />
                 </CollapsibleSection>
 
@@ -581,6 +584,7 @@ const Composer = () => {
                         fmSettings={fmSettings} onFmSettingsChange={setFmSettings}
                         amSettings={amSettings} onAmSettingsChange={setAmSettings}
                         basicSynthSettings={basicSynthSettings} onBasicSynthSettingsChange={setBasicSynthSettings}
+                        screenWidth={screenWidth}
                     />
                 </CollapsibleSection>
             </div>
@@ -595,6 +599,8 @@ const Composer = () => {
                 contextualChord={contextualChord}
                 nextChord={nextChordInProgression}
                 player={player.current}
+                screenWidth={screenWidth}
+                screenHeight={screenHeight}
             />
         </div>
     );

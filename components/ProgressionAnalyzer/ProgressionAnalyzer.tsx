@@ -50,14 +50,20 @@ const ProgressionAnalyzer = ({
     analysis, 
     onAddChords,
     suggestions,
-    suggestionContextChord
+    suggestionContextChord,
+    screenWidth
 }) => {
     const { hints, analysis: progressionAnalysis } = analysis;
     const { harmonicTheory } = suggestions;
+
+    const isDesktop = screenWidth >= 900;
     
     return (
         <div className="progression-analyzer" aria-live="polite">
-            <div className="analysis-grid">
+            <div 
+                className="analysis-grid"
+                style={{ gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr' }}
+            >
                 <section className="analysis-cell analysis-cell-left">
                     <h3>Key & Mode Info</h3>
                      <div className="mode-info">

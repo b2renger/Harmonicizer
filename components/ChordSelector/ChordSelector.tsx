@@ -13,7 +13,7 @@ import './ChordSelector.css';
  * It provides a comprehensive interface for selecting chord properties and
  * visualizes the relationship of the chord to its musical context.
  */
-const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode, contextualChord, nextChord, player }) => {
+const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode, contextualChord, nextChord, player, screenWidth, screenHeight }) => {
     // Internal state for managing the chord being edited within the modal.
     const [selectedRoot, setSelectedRoot] = useState('C');
     const [selectedType, setSelectedType] = useState('maj7');

@@ -162,39 +162,31 @@ const GraphicalEnvelopeEditor = (props) => {
         }
     };
     
+    const isMobile = props.screenWidth <= 768;
+
     return (
         <div className="graphical-envelope-editor">
-             <div className="synth-selector">
-                <label htmlFor="synth">Synth:</label>
-                <select 
-                    id="synth" 
-                    name="synth" 
-                    value={props.synthType}
-                    onChange={(e) => props.onSynthChange(e.target.value)}
-                >
-                    <option value="Rhodes">Rhodes EP</option>
-                    <option value="MoogLead">Moog Lead</option>
-                    <option value="MoogBass">Moog Bass</option>
-                    <option value="VCS3Drone">VCS3 Drone</option>
-                    <option value="VCS3FX">VCS3 FX</option>
-                    <option value="FMSynth">FM Synth</option>
-                    <option value="AMSynth">AM Synth</option>
-                    <option value="Synth">Basic Synth</option>
-                </select>
-            </div>
-
-            <div className="synth-main-panel">
-                <div className="synth-parameters-panel">
-                    {renderSynthSpecificKnobs()}
+            <div className="top-controls-panel">
+                <div className="synth-selector">
+                    <label htmlFor="synth">Synth:</label>
+                    <select 
+                        id="synth" 
+                        name="synth" 
+                        value={props.synthType}
+                        onChange={(e) => props.onSynthChange(e.target.value)}
+                    >
+                        <option value="Rhodes">Rhodes EP</option>
+                        <option value="MoogLead">Moog Lead</option>
+                        <option value="MoogBass">Moog Bass</option>
+                        <option value="VCS3Drone">VCS3 Drone</option>
+                        <option value="VCS3FX">VCS3 FX</option>
+                        <option value="FMSynth">FM Synth</option>
+                        <option value="AMSynth">AM Synth</option>
+                        <option value="Synth">Basic Synth</option>
+                    </select>
                 </div>
-                <div className="amplitude-envelope-panel">
-                    <h4>Amplitude Envelope</h4>
-                    <ADSRGraph envelope={getCurrentEnvelope()} onEnvelopeChange={onEnvelopeChange} />
-                </div>
-            </div>
 
-            <div className="global-controls-panel">
-                 <div className="arpeggiator-controls">
+                <div className="arpeggiator-controls">
                     <label className="arpeggiator-toggle-label">Arpeggiator:</label>
                     <button
                         className={`arpeggiator-toggle-button ${props.isArpeggiatorActive ? 'active' : ''}`}
@@ -239,6 +231,22 @@ const GraphicalEnvelopeEditor = (props) => {
                         aria-label="Arpeggiator Repeats"
                     />
                 </div>
+            </div>
+
+            <div 
+                className="synth-main-panel"
+                style={{ gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}
+            >
+                <div className="synth-parameters-panel">
+                    {renderSynthSpecificKnobs()}
+                </div>
+                <div className="amplitude-envelope-panel">
+                    <h4>Amplitude Envelope</h4>
+                    <ADSRGraph envelope={getCurrentEnvelope()} onEnvelopeChange={onEnvelopeChange} />
+                </div>
+            </div>
+
+            <div className="bottom-controls-panel">
                 <div className="effect-controls">
                     <Knob label="Reverb Mix" value={props.reverbWet * 100} min={0} max={100} step={1} onChange={(v) => props.onReverbWetChange(v / 100)} unit="%"/>
                     <Knob label="Reverb Time" value={props.reverbTime} min={0.5} max={10} step={0.1} onChange={props.onReverbTimeChange} unit="s"/>

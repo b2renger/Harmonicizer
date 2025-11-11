@@ -4,16 +4,8 @@
 
 .analysis-grid {
     display: grid;
-    grid-template-columns: 1fr; /* Default to single column */
+    /* grid-template-columns is now set via inline styles from the component */
     gap: 2rem;
-}
-
-/* Apply 2-column layout on wider screens */
-@media (min-width: 900px) {
-    .analysis-grid {
-        grid-template-columns: 1fr 1fr;
-        align-items: start; /* Align columns to the top */
-    }
 }
 
 .analysis-cell {

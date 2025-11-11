@@ -22,6 +22,8 @@ interface ChordGridProps {
     onChordNotesUpdate: (id: string, newNotes: string[]) => void;
     musicalKey: string;
     musicalMode: string;
+    screenWidth: number;
+    screenHeight: number;
 }
 
 /**
@@ -43,6 +45,7 @@ const ChordGrid: React.FC<ChordGridProps> = ({
     onChordNotesUpdate,
     musicalKey,
     musicalMode,
+    screenWidth,
 }) => {
     const [draggedChordId, setDraggedChordId] = useState(null);
     const [dragOverChordId, setDragOverChordId] = useState(null);
@@ -125,9 +128,23 @@ const ChordGrid: React.FC<ChordGridProps> = ({
        cleanupDragState();
     };
 
+    /**
+     * Determines the grid layout style based on the screen width.
+     * @returns {React.CSSProperties} A style object for the grid container.
+     */
+    const getGridStyle = (): React.CSSProperties => {
+        if (screenWidth <= 768) {
+            return { gridTemplateColumns: '1fr' };
+        }
+        if (screenWidth < 992) {
+            return { gridTemplateColumns: 'repeat(3, 1fr)' };
+        }
+        return { gridTemplateColumns: 'repeat(4, 1fr)' };
+    };
+
 
     return (
-        <div className="chord-grid">
+        <div className="chord-grid" style={getGridStyle()}>
             {progression.map(chord => (
                 <div 
                     key={chord.id}

@@ -183,7 +183,7 @@
     border-radius: 8px;
     font-family: inherit;
     font-size: 1rem;
-    min-height: 120px;
+    min-height: 25px;
     cursor: pointer;
     padding: 1.5rem 1rem;
 }

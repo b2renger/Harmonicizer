@@ -1,7 +1,6 @@
 .chord-grid {
     display: grid;
-    /* Default for screens from 769px up to 991px (inclusive) - 3 columns for tablets/small desktops */
-    grid-template-columns: repeat(3, 1fr);
+    /* grid-template-columns is now set via inline styles from the component */
     gap: 1rem;
     padding: 1rem;
     background-color: rgba(255, 255, 255, 0.05);
@@ -9,18 +8,9 @@
     align-items: start; /* Align items to the top */
 }
 
-/* Force 4 columns for larger desktop screens (992px and up) to make cards approximately 25% width */
-@media (min-width: 992px) {
-    .chord-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-}
-
 /* For small screens (mobile portrait and landscape), stack cards */
 @media (max-width: 768px) {
-    .chord-grid {
-        grid-template-columns: 1fr;
-    }
+    /* grid-template-columns is now handled by the component */
     .chord-grid-item {
         display: flex; /* Ensure flex container for side-by-side layout */
         flex-direction: row;
