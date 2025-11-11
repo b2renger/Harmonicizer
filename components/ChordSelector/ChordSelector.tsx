@@ -3,8 +3,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { rootNotes, chordTypes, getChordNotesWithOctaves, detectChordFromNotes, getAbbreviatedNameFromNotes } from '../../theory/chords.js';
 import { getDiatonicChords, getBorrowedChords, getRomanNumeralForNote } from '../../theory/harmony.js';
 import { Chord as TonalChord, Note } from 'tonal';
-import ChordTransitionVisualizer from '../ChordTransitionVisualizer/ChordTransitionVisualizer.tsx';
-import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisualizer.tsx';
 import CollapsibleSection from '../CollapsibleSection/CollapsibleSection.tsx';
 import './ChordSelector.css';
 
@@ -13,7 +11,7 @@ import './ChordSelector.css';
  * It provides a comprehensive interface for selecting chord properties and
  * visualizes the relationship of the chord to its musical context.
  */
-const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode, contextualChord, nextChord, player, screenWidth, screenHeight }) => {
+const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode, player, screenWidth, screenHeight }) => {
     // Internal state for managing the chord being edited within the modal.
     const [selectedRoot, setSelectedRoot] = useState('C');
     const [selectedType, setSelectedType] = useState('maj7');
@@ -105,22 +103,6 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
     }, [selectedRoot, selectedType, selectedOctave, isRest]);
 
     /**
-     * Handler for when notes are changed directly via the VerticalNoteVisualizer.
-     * It updates the internal notes and attempts to reverse-engineer the root/type to keep UI controls in sync.
-     * @param {string[]} newNotes - The new array of notes.
-     */
-    const handleSelectedChordNotesUpdate = (newNotes) => {
-        setSelectedNotes(newNotes);
-        const newChordName = detectChordFromNotes(newNotes);
-        if (newChordName) {
-            const { root, type } = parseChordName(newChordName);
-            if (root) setSelectedRoot(root);
-            if (type) setSelectedType(type === 'M' ? 'maj' : type);
-        }
-        player?.playOneShot(newNotes);
-    };
-
-    /**
      * Memoized calculation of which notes are diatonic or borrowed in the current key/mode context.
      * Used to apply styling to the root note selection buttons.
      */
@@ -162,12 +144,6 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
     if (!isOpen) return null;
 
     const displaySelection = getAbbreviatedNameFromNotes(selectedNotes);
-    
-    // Determine if the chord transition visualizers should be shown.
-    const selectedChordIsValid = selectedNotes.length > 0;
-    const prevChordIsValid = contextualChord && contextualChord.notes.length > 0;
-    const nextChordIsValid = nextChord && nextChord.notes.length > 0;
-    const showVisualization = selectedChordIsValid;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -285,46 +261,6 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
                             </CollapsibleSection>
                         </div>
                     </div>
-
-                    {showVisualization && (
-                         <CollapsibleSection title="Note Visualization" defaultOpen={true}>
-                            <div className="chord-visualization-container">
-                                {prevChordIsValid && (
-                                    <ChordTransitionVisualizer
-                                        fromNotes={contextualChord.notes}
-                                        toNotes={selectedNotes}
-                                        title={`From ${getAbbreviatedNameFromNotes(contextualChord.notes)}`}
-                                        onToChordNotesChange={handleSelectedChordNotesUpdate}
-                                        musicalKey={musicalKey}
-                                        musicalMode={musicalMode}
-                                    />
-                                )}
-
-                                <div className="current-chord-visualizer-container">
-                                    <h4 className="current-chord-visualizer-title">
-                                        {getAbbreviatedNameFromNotes(selectedNotes)}
-                                    </h4>
-                                    <VerticalNoteVisualizer
-                                        notes={selectedNotes}
-                                        onNotesChange={handleSelectedChordNotesUpdate}
-                                        musicalKey={musicalKey}
-                                        musicalMode={musicalMode}
-                                    />
-                                </div>
-
-                                {nextChordIsValid && (
-                                    <ChordTransitionVisualizer
-                                        fromNotes={selectedNotes}
-                                        toNotes={nextChord.notes}
-                                        title={`To ${getAbbreviatedNameFromNotes(nextChord.notes)}`}
-                                        musicalKey={musicalKey}
-                                        musicalMode={musicalMode}
-                                        onToChordNotesChange={null} // This visualizer is read-only
-                                    />
-                                )}
-                            </div>
-                        </CollapsibleSection>
-                    )}
                 </div>
             </div>
         </div>

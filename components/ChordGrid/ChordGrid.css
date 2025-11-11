@@ -1,51 +1,63 @@
+
+
 .chord-grid {
     display: grid;
     /* grid-template-columns is now set via inline styles from the component */
     gap: 1rem;
-    padding: 1rem;
     background-color: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     align-items: start; /* Align items to the top */
 }
 
-/* For small screens (mobile portrait and landscape), stack cards */
-@media (max-width: 768px) {
-    /* grid-template-columns is now handled by the component */
-    .chord-grid-item {
-        display: flex; /* Ensure flex container for side-by-side layout */
-        flex-direction: row;
-        gap: 0.5rem;
-        align-items: stretch;
-    }
-
-    /* Target the direct children of the grid item */
-    .chord-grid-item > .chord-card {
-        flex-basis: calc(100% / 3); /* Chord card takes 1/3 of the row */
-        width: unset; /* Let flex-basis control width */
-        flex-shrink: 0; /* Prevent it from shrinking */
-        min-width: 0;
-    }
-
-    .chord-grid-item > .vertical-note-visualizer {
-        flex-grow: 1; /* Visualizer takes remaining space */
-        flex-basis: 0; /* No intrinsic base size, will grow */
-        width: unset; /* Override fixed width */
-        flex-shrink: 1;
-    }
+.chord-grid-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: relative;
 }
 
-/* For very small screens (mobile portrait), stack card and visualizer vertically */
-@media (max-width: 500px) {
-    .chord-grid-item {
-        flex-direction: column; /* Stack vertically */
+.chord-grid-item.is-dragging-wrapper {
+    opacity: 0.4;
+}
+
+/* Drop target indicator */
+.chord-grid-item.drag-over-wrapper::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    bottom: -5px;
+    left: -5px;
+    right: -5px;
+    border: 2px dashed cyan;
+    border-radius: 12px;
+    pointer-events: none;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* New style for when the visualizer is active */
+@media (max-width: 768px) {
+    /* Rely on the parent .chord-grid's `gap` property for consistent vertical spacing. */
+
+    .chord-grid-item.visualizer-active {
+        flex-direction: row;
+        height: 120px; /* Give a fixed height to contain children */
+        align-items: stretch;
+        gap: 0.5rem; /* Add a small gap between the card and visualizer */
     }
 
-    .chord-grid-item > .chord-card {
-        flex-basis: auto; /* Reset flex-basis */
-        width: 100%; /* Take full width */
+    .chord-grid-item.visualizer-active > .chord-card {
+        flex: 0 0 20%; /* Give more space to visualizer */
+        max-width: 80px; /* Prevent the card from becoming too wide */
     }
 
-    .chord-grid-item > .vertical-note-visualizer {
-        width: 100%; /* Take full width */
+    .chord-grid-item.visualizer-active > .note-visualizer {
+        flex: 1 1 80%; /* Allow it to take up the remaining ~80% space */
+        min-width: 0;   /* CRITICAL: Allows flex item to shrink and scroll internally */
     }
 }

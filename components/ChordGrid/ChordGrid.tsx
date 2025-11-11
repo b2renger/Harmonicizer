@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import ChordCard from '../ChordCard/ChordCard.tsx';
-import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisualizer.tsx';
+import NoteVisualizer from '../NoteVisualizer/NoteVisualizer.tsx';
 import './ChordGrid.css';
 
 /**
@@ -148,7 +148,7 @@ const ChordGrid: React.FC<ChordGridProps> = ({
             {progression.map(chord => (
                 <div 
                     key={chord.id}
-                    className={`chord-grid-item ${dragOverChordId === chord.id && draggedChordId !== chord.id ? 'drag-over-wrapper' : ''}`}
+                    className={`chord-grid-item ${dragOverChordId === chord.id && draggedChordId !== chord.id ? 'drag-over-wrapper' : ''} ${isNoteVisualizerVisible ? 'visualizer-active' : ''}`}
                     onDragOver={(e) => handleDragOver(e, chord.id)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, chord.id)}
@@ -174,7 +174,7 @@ const ChordGrid: React.FC<ChordGridProps> = ({
                         isDragOver={dragOverChordId === chord.id && draggedChordId !== chord.id}
                     />
                     {isNoteVisualizerVisible && (
-                        <VerticalNoteVisualizer 
+                        <NoteVisualizer 
                             notes={chord.notes}
                             onNotesChange={(newNotes) => onChordNotesUpdate(chord.id, newNotes)}
                             musicalKey={musicalKey}

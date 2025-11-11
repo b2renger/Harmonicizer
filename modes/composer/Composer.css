@@ -30,27 +30,10 @@
     margin-top: 0.25rem;
 }
 
-.chord-grid-wrapper {
-    flex-grow: 1;
-    overflow-y: auto;
-    min-height: 0; /* Necessary for flexbox overflow scrolling */
-}
-
-.analysis-effects-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    flex-shrink: 0;
-}
-
-.main-controls-wrapper {
+.playback-controls-container {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding: 1rem 1.5rem;
-    background-color: #1e1e1e;
-    border-radius: 12px;
-    flex-shrink: 0;
 }
 
 .secondary-controls {
