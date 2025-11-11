@@ -1,8 +1,37 @@
+
 import React from 'react';
 import './ChordCard.css';
 import { getAbbreviatedNameFromNotes } from '../../theory/chords.js';
 
-const ChordCard = ({ 
+/**
+ * Interface for ChordCard props.
+ */
+interface ChordCardProps {
+    chordId: string;
+    notes: string[];
+    duration: number;
+    onEdit: () => void;
+    onSelect: (id: string) => void;
+    isSelected: boolean;
+    isPlaying: boolean;
+    onRemove: (id: string) => void;
+    onNextInvert: () => void;
+    onPreviousInvert: () => void;
+    onPermute: () => void;
+    onDragStart: (e: React.DragEvent) => void;
+    onDragOver: (e: React.DragEvent) => void;
+    onDragLeave: (e: React.DragEvent) => void;
+    onDrop: (e: React.DragEvent) => void;
+    onDragEnd: (e: React.DragEvent) => void;
+    isDragOver: boolean;
+}
+
+/**
+ * A card component that displays information about a single chord in the progression.
+ * It handles its own display state (playing, selected) and delegates actions to parent.
+ * @param {ChordCardProps} props - The props for the component.
+ */
+const ChordCard: React.FC<ChordCardProps> = ({ 
     chordId, 
     notes,
     duration, 
@@ -24,6 +53,7 @@ const ChordCard = ({
     
     const isRest = notes.length === 0;
 
+    // Dynamically build class names based on component state.
     const classNames = [
         'chord-card',
         isPlaying ? 'playing' : '',
@@ -106,4 +136,4 @@ const ChordCard = ({
     );
 };
 
-export default ChordCard;
+export default React.memo(ChordCard);

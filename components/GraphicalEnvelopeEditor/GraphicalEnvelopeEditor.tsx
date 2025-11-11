@@ -1,10 +1,20 @@
+
 import React from 'react';
 import './GraphicalEnvelopeEditor.css';
 import Knob from '../Knob/Knob.tsx';
 import ADSRGraph from '../ADSRGraph/ADSRGraph.tsx';
 
+/**
+ * A comprehensive UI component for controlling synthesizer parameters, effects,
+ * and the arpeggiator. It dynamically displays controls relevant to the
+ * currently selected synthesizer type.
+ */
 const GraphicalEnvelopeEditor = (props) => {
     
+    /**
+     * Renders the specific set of parameter knobs for the current synth type.
+     * This allows each synth to have a unique control surface.
+     */
     const renderSynthSpecificKnobs = () => {
         switch (props.synthType) {
             case 'Rhodes':
@@ -24,6 +34,7 @@ const GraphicalEnvelopeEditor = (props) => {
                 const settings = props.synthType === 'MoogLead' ? props.moogLeadSettings : props.moogBassSettings;
                 const setSettings = props.synthType === 'MoogLead' ? props.onMoogLeadSettingsChange : props.onMoogBassSettingsChange;
                 
+                // A dedicated handler for the filter envelope, as its parameters are stored separately.
                 const handleFilterEnvelopeChange = (newEnv) => {
                     setSettings(s => ({
                         ...s,
@@ -117,6 +128,9 @@ const GraphicalEnvelopeEditor = (props) => {
         }
     };
 
+    /**
+     * Retrieves the correct amplitude envelope object from props based on the current synth type.
+     */
     const getCurrentEnvelope = () => {
         switch (props.synthType) {
             case 'Rhodes': return props.rhodesSettings.envelope;
@@ -131,6 +145,10 @@ const GraphicalEnvelopeEditor = (props) => {
         }
     };
     
+    /**
+     * Calls the correct state setter function from props when the amplitude envelope is changed.
+     * @param newEnvelope The new envelope object from the ADSRGraph component.
+     */
     const onEnvelopeChange = (newEnvelope) => {
         switch (props.synthType) {
             case 'Rhodes': props.onRhodesSettingsChange(s => ({ ...s, envelope: newEnvelope })); break;
@@ -231,4 +249,4 @@ const GraphicalEnvelopeEditor = (props) => {
     );
 };
 
-export default GraphicalEnvelopeEditor;
+export default React.memo(GraphicalEnvelopeEditor);

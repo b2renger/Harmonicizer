@@ -1,10 +1,11 @@
+
 import { Mode, Chord, Scale, Interval, Note } from 'tonal';
 import { getAbbreviatedChordName, getChordNotesWithOctaves as getChordNotesWithOctavesUtil } from './chords.js';
 
 /**
  * A robust wrapper around Tonal.Chord.get to handle inconsistencies
  * from Tonal.Mode.seventhChords, like "G half-diminished seventh".
- * @param chordName The name of the chord to parse.
+ * @param {string} chordName - The name of the chord to parse.
  * @returns A Tonal Chord object.
  */
 const getChordInfo = (chordName) => {
@@ -30,10 +31,10 @@ const getChordInfo = (chordName) => {
 
 /**
  * Generates a detailed Roman numeral for a given chord in the context of a key and mode.
- * @param chordName The name of the chord (e.g., "Am7").
- * @param key The tonic of the key (e.g., "C").
- * @param mode The mode of the key (e.g., "major").
- * @returns A Roman numeral string (e.g., "vim7") or an empty string.
+ * @param {string} chordName - The name of the chord (e.g., "Am7").
+ * @param {string} key - The tonic of the key (e.g., "C").
+ * @param {string} mode - The mode of the key (e.g., "major").
+ * @returns {string} A Roman numeral string (e.g., "vim7") or an empty string.
  */
 export const getRomanNumeralForChord = (chordName, key, mode) => {
     const scale = Scale.get(`${key} ${mode}`);
@@ -52,7 +53,7 @@ export const getRomanNumeralForChord = (chordName, key, mode) => {
     if (degreeIndex !== -1) {
         roman = numerals[degreeIndex];
     } else {
-        // Handle chromatic/borrowed chords
+        // Handle chromatic/borrowed chords by calculating interval from the key's tonic.
         const interval = Interval.distance(key, chordInfo.tonic);
         const intervalInfo = Interval.get(interval);
         if (!intervalInfo.num || intervalInfo.num > 7) return '';
@@ -60,6 +61,7 @@ export const getRomanNumeralForChord = (chordName, key, mode) => {
         const baseDegreeIndex = intervalInfo.num - 1;
         roman = numerals[baseDegreeIndex];
         
+        // Determine if an accidental (b or #) is needed.
         const diatonicNote = scale.notes[baseDegreeIndex];
         const diatonicInterval = Interval.distance(key, diatonicNote);
         const diatonicSemitones = Interval.semitones(diatonicInterval);
@@ -74,15 +76,16 @@ export const getRomanNumeralForChord = (chordName, key, mode) => {
         }
     }
     
-    // Determine quality and suffix
+    // Determine quality (Major, minor, dim, aug) and suffix (7, 9, etc.).
     let suffix = chordInfo.type;
-    // FIX: Cast quality to string to avoid type errors with tonal's sometimes-incomplete ChordQuality type.
-    const quality = chordInfo.quality as string;
+    const quality = chordInfo.quality as string; // Cast needed due to Tonal.js types
 
+    // Adjust case based on quality
     if (quality === 'Minor' || quality === 'Diminished' || quality === 'Half-diminished') {
         roman = roman.toLowerCase();
     }
     
+    // Simplify common suffixes
     if (quality === 'Major') {
         suffix = (suffix === 'M' || suffix === 'maj') ? '' : suffix;
     } else if (quality === 'Minor') {
@@ -103,10 +106,10 @@ export const getRomanNumeralForChord = (chordName, key, mode) => {
 /**
  * Calculates the Roman numeral for a single note's degree within a key and mode.
  * The case of the numeral (e.g., 'ii' vs 'II') reflects the quality of the diatonic triad built on that degree.
- * @param note The note to analyze (e.g., "D").
- * @param key The tonic of the key (e.g., "C").
- * @param mode The mode of the key (e.g., "major").
- * @returns The Roman numeral as a string (e.g., "ii", "bVI", "#IV°") or an empty string if not found.
+ * @param {string} note - The note to analyze (e.g., "D").
+ * @param {string} key - The tonic of the key (e.g., "C").
+ * @param {string} mode - The mode of the key (e.g., "major").
+ * @returns {string} The Roman numeral as a string (e.g., "ii", "bVI", "#IV°") or an empty string if not found.
  */
 export const getRomanNumeralForNote = (note, key, mode) => {
     const scale = Scale.get(`${key} ${mode}`);
@@ -115,11 +118,10 @@ export const getRomanNumeralForNote = (note, key, mode) => {
     
     const simplifiedNote = Note.simplify(note);
     
-    // Find diatonic degree
     const degreeIndex = scale.notes.findIndex(scaleNote => Note.simplify(scaleNote) === simplifiedNote);
 
     if (degreeIndex !== -1) {
-        // It's diatonic, so we can determine the quality and case.
+        // It's a diatonic note.
         const diatonicTriad = diatonicTriads[degreeIndex];
         const quality = Chord.get(diatonicTriad).quality;
         const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
@@ -131,7 +133,7 @@ export const getRomanNumeralForNote = (note, key, mode) => {
         if (quality === 'Augmented') return roman + '+';
         return roman;
     } else {
-        // It's chromatic, calculate from interval.
+        // It's a chromatic note.
         const interval = Interval.distance(key, note);
         const intervalInfo = Interval.get(interval);
         if (!intervalInfo.num || intervalInfo.num > 7) return '';
@@ -153,12 +155,17 @@ export const getRomanNumeralForNote = (note, key, mode) => {
         } else if (currentSemitones < diatonicSemitones) {
             accidental = 'b';
         }
-        // For chromatic notes, we can't infer quality, so we leave it uppercase by convention.
+        // For chromatic notes, quality is ambiguous, so use uppercase by convention.
         return accidental + roman;
     }
 }
 
-
+/**
+ * Gets all the diatonic seventh chords for a given key and mode.
+ * @param {string} tonic - The tonic of the key (e.g., "C").
+ * @param {string} modeName - The name of the mode (e.g., "major").
+ * @returns {Array<{name: string, roman: string}>} An array of chord objects.
+ */
 export const getDiatonicChords = (tonic, modeName) => {
     try {
         const chords = Mode.seventhChords(modeName, tonic);
@@ -177,6 +184,12 @@ export const getDiatonicChords = (tonic, modeName) => {
     }
 };
 
+/**
+ * Gets chords "borrowed" from the parallel mode (e.g., from C minor while in C major).
+ * @param {string} tonic - The tonic of the key.
+ * @param {string} modeName - The original mode name.
+ * @returns {Array<{name: string, roman: string}>} An array of borrowed chord objects.
+ */
 export const getBorrowedChords = (tonic, modeName) => {
     let parallelModeName = null;
     if (modeName === 'major') parallelModeName = 'minor';
@@ -188,18 +201,21 @@ export const getBorrowedChords = (tonic, modeName) => {
     const currentDiatonicChordSymbols = new Set(getDiatonicChords(tonic, modeName).map(c => c.name));
     const parallelDiatonicChords = getDiatonicChords(tonic, parallelModeName);
     
+    // Find chords from the parallel mode that are not in the current mode.
     const borrowedChords = parallelDiatonicChords.filter(pChord => 
         !currentDiatonicChordSymbols.has(pChord.name)
     );
     
-    // Recalculate roman numerals from the perspective of the original mode
+    // Recalculate roman numerals from the perspective of the original mode.
     return borrowedChords.map(chord => ({
         name: chord.name,
         roman: getRomanNumeralForChord(chord.name, tonic, modeName)
     }));
 };
 
-// A dictionary of common harmonic patterns.
+/**
+ * A dictionary of common harmonic patterns, represented by Roman numerals.
+ */
 export const COMMON_PATTERNS = {
     'ii-V-I Turnaround': ['ii', 'V', 'I'],
     'I-vi-IV-V "Doo-Wop"': ['I', 'vi', 'IV', 'V'],
@@ -213,10 +229,10 @@ export const COMMON_PATTERNS = {
 
 /**
  * Gets a chord symbol for a given Roman numeral in a key.
- * @param roman The Roman numeral (e.g., "IV", "vi").
- * @param key The tonic of the key.
- * @param mode The mode of the key.
- * @returns A chord symbol (e.g., "Fmaj7") or null.
+ * @param {string} roman - The Roman numeral (e.g., "IV", "vi").
+ * @param {string} key - The tonic of the key.
+ * @param {string} mode - The mode of the key.
+ * @returns {string | null} A chord symbol (e.g., "Fmaj7") or null.
  */
 export const getChordFromRomanNumeral = (roman, key, mode) => {
     const scale = Scale.get(`${key} ${mode}`);
@@ -228,7 +244,7 @@ export const getChordFromRomanNumeral = (roman, key, mode) => {
     
     if (degreeIndex === -1) return null;
     
-    // Tonal's Mode.seventhChords is more reliable for getting the correct chord quality
+    // Tonal's Mode.seventhChords is more reliable for getting the correct chord quality.
     const diatonicChords = Mode.seventhChords(mode, key);
     if (diatonicChords.length > degreeIndex) {
         return getAbbreviatedChordName(diatonicChords[degreeIndex]);
@@ -239,9 +255,9 @@ export const getChordFromRomanNumeral = (roman, key, mode) => {
 
 /**
  * Generates a random 4-chord progression based on common patterns.
- * @param key The tonic of the key.
- * @param mode The mode of the key.
- * @returns An array of 4 chord names.
+ * @param {string} key - The tonic of the key.
+ * @param {string} mode - The mode of the key.
+ * @returns {string[]} An array of 4 chord names.
  */
 export const generateRandomProgression = (key, mode) => {
     const fourChordPatterns = Object.values(COMMON_PATTERNS).filter(p => p.length === 4);
@@ -251,22 +267,22 @@ export const generateRandomProgression = (key, mode) => {
     if (fourChordPatterns.length > 0) {
         patternToUse = fourChordPatterns[Math.floor(Math.random() * fourChordPatterns.length)];
     } else {
-        // Fallback if no 4-chord patterns are defined
+        // Fallback if no 4-chord patterns are defined.
         patternToUse = mode === 'minor' ? ['i', 'VI', 'III', 'VII'] : ['I', 'V', 'vi', 'IV'];
     }
     
     const chords = patternToUse
         .map(numeral => getChordFromRomanNumeral(numeral, key, mode))
-        .filter((c) => c !== null);
+        .filter((c): c is string => c !== null);
 
-    // If any chord failed to convert, use a failsafe progression
+    // If any chord failed to convert, use a failsafe progression.
     if (chords.length !== 4) {
         const fallbackNumerals = mode === 'minor' ? ['i', 'iv', 'V', 'i'] : ['I', 'IV', 'V', 'I'];
-         return fallbackNumerals.map(n => getChordFromRomanNumeral(n, key, mode)).filter((c) => c !== null);
+         return fallbackNumerals.map(n => getChordFromRomanNumeral(n, key, mode)).filter((c): c is string => c !== null);
     }
     
     return chords;
 };
 
-// Re-export for use in analysis module
+// Re-export for use in other modules.
 export { getChordNotesWithOctavesUtil as getChordNotesWithOctaves };

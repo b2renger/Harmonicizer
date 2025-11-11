@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { rootNotes, chordTypes, getChordNotesWithOctaves, detectChordFromNotes, getAbbreviatedNameFromNotes } from '../../theory/chords.js';
 import { getDiatonicChords, getBorrowedChords, getRomanNumeralForNote } from '../../theory/harmony.js';
@@ -7,7 +8,13 @@ import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisual
 import CollapsibleSection from '../CollapsibleSection/CollapsibleSection.tsx';
 import './ChordSelector.css';
 
+/**
+ * A modal dialog for creating a new chord or editing an existing one.
+ * It provides a comprehensive interface for selecting chord properties and
+ * visualizes the relationship of the chord to its musical context.
+ */
 const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode, contextualChord, nextChord, player }) => {
+    // Internal state for managing the chord being edited within the modal.
     const [selectedRoot, setSelectedRoot] = useState('C');
     const [selectedType, setSelectedType] = useState('maj7');
     const [selectedDuration, setSelectedDuration] = useState(4);
@@ -15,20 +22,26 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
     const [isRest, setIsRest] = useState(false);
     const [selectedNotes, setSelectedNotes] = useState([]);
 
-
+    /**
+     * Parses a chord name into its root and type components.
+     * @param {string} name - The chord name (e.g., "Cmaj7").
+     * @returns {{root: string | null, type: string | null}}
+     */
     const parseChordName = (name) => {
         if (!name || name === 'Rest') {
             return { root: null, type: null };
         }
         const chordInfo = TonalChord.get(name);
         if (chordInfo.empty) {
-            const match = name.match(/^([A-G]#?b?)(.*)$/i); // Case-insensitive match
+            // Fallback for names Tonal might not parse directly in .get()
+            const match = name.match(/^([A-G]#?b?)(.*)$/i);
             if (match) return { root: match[1], type: match[2] || 'maj' };
             return { root: null, type: null };
         }
         return { root: chordInfo.tonic, type: chordInfo.type };
     }
 
+    // Effect to initialize the modal's state when it opens with a chord.
     useEffect(() => {
         if (isOpen) {
             const initialNotes = chord?.notes && chord.notes.length > 0
@@ -44,12 +57,12 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
                  setIsRest(false);
             }
 
-            // Update controls based on notes
+            // Update UI controls (root, type, octave) to reflect the initial notes.
             const detectedName = detectChordFromNotes(initialNotes);
             if (detectedName) {
                 const { root, type } = parseChordName(detectedName);
                 if (root) setSelectedRoot(root);
-                if (type) setSelectedType(type === 'M' ? 'maj' : type);
+                if (type) setSelectedType(type === 'M' ? 'maj' : type); // Normalize 'M' to 'maj'
             }
             
             if (initialNotes.length > 0) {
@@ -61,6 +74,10 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
         }
     }, [isOpen, chord, musicalKey]);
 
+    /**
+     * Updates the `selectedNotes` state based on the current UI controls (root, type, octave).
+     * Also triggers a one-shot playback of the new chord for auditory feedback.
+     */
     const updateNotesFromControls = useCallback(() => {
         if (isRest) {
             setSelectedNotes([]);
@@ -72,6 +89,9 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
         player?.playOneShot(newNotes);
     }, [selectedRoot, selectedType, selectedOctave, isRest, player]);
 
+    /**
+     * Calls the onSave callback with the finalized chord data.
+     */
     const handleSave = () => {
         onSave({
             notes: isRest ? [] : selectedNotes,
@@ -79,11 +99,16 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
         });
     };
 
+    // Effect to auto-update the notes whenever the basic chord properties change.
     useEffect(() => {
-        // This effect runs when root, type, or octave changes to update notes
         updateNotesFromControls();
     }, [selectedRoot, selectedType, selectedOctave, isRest]);
 
+    /**
+     * Handler for when notes are changed directly via the VerticalNoteVisualizer.
+     * It updates the internal notes and attempts to reverse-engineer the root/type to keep UI controls in sync.
+     * @param {string[]} newNotes - The new array of notes.
+     */
     const handleSelectedChordNotesUpdate = (newNotes) => {
         setSelectedNotes(newNotes);
         const newChordName = detectChordFromNotes(newNotes);
@@ -95,6 +120,10 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
         player?.playOneShot(newNotes);
     };
 
+    /**
+     * Memoized calculation of which notes are diatonic or borrowed in the current key/mode context.
+     * Used to apply styling to the root note selection buttons.
+     */
     const keyContext = useMemo(() => {
         const diatonicChords = getDiatonicChords(musicalKey, musicalMode);
         const borrowedChords = getBorrowedChords(musicalKey, musicalMode);
@@ -114,6 +143,10 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
         return { diatonicNoteSet, borrowedNoteSet };
     }, [musicalKey, musicalMode]);
 
+    /**
+     * Memoized calculation of which chord types are diatonic or borrowed for the currently selected root note.
+     * Used to apply styling to the chord type selection buttons.
+     */
     const typeContext = useMemo(() => {
         if (!selectedRoot) return { diatonicType: null, borrowedType: null };
 
@@ -130,6 +163,7 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
 
     const displaySelection = getAbbreviatedNameFromNotes(selectedNotes);
     
+    // Determine if the chord transition visualizers should be shown.
     const selectedChordIsValid = selectedNotes.length > 0;
     const prevChordIsValid = contextualChord && contextualChord.notes.length > 0;
     const nextChordIsValid = nextChord && nextChord.notes.length > 0;
@@ -222,6 +256,7 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
                                                         isBorrowed ? 'borrowed' : ''
                                                     ].filter(Boolean).join(' ');
 
+                                                    // Split type into quality (maj, m, dim) and ornament (7, 9, sus4) for styling.
                                                     const qualities = ['maj', 'm', 'dim', 'aug', 'sus'];
                                                     const matchedQuality = qualities.find(q => type.startsWith(q));
                                                     let quality = '';
@@ -284,7 +319,7 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
                                         title={`To ${getAbbreviatedNameFromNotes(nextChord.notes)}`}
                                         musicalKey={musicalKey}
                                         musicalMode={musicalMode}
-                                        onToChordNotesChange={() => {}}
+                                        onToChordNotesChange={null} // This visualizer is read-only
                                     />
                                 )}
                             </div>
@@ -296,4 +331,4 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
     );
 };
 
-export default ChordSelector;
+export default React.memo(ChordSelector);

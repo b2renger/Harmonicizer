@@ -1,12 +1,13 @@
+
 import { Chord, Scale, Note, Mode } from 'tonal';
 import { getRomanNumeralForChord, getChordFromRomanNumeral, getDiatonicChords, getBorrowedChords } from './harmony.js';
 import { detectChordFromNotes } from './chords.js';
 
 /**
  * A robust method for checking common notes between chords, accounting for octaves.
- * @param chordName1 First chord.
- * @param chordName2 Second chord.
- * @returns The number of common pitch classes.
+ * @param {string} chordName1 - First chord.
+ * @param {string} chordName2 - Second chord.
+ * @returns {number} The number of common pitch classes.
  */
 function calculateConsonance(chordName1, chordName2) {
     if (!chordName1 || chordName1 === 'Rest' || !chordName2 || chordName2 === 'Rest') {
@@ -28,6 +29,11 @@ function calculateConsonance(chordName1, chordName2) {
     return commonNotes;
 }
 
+/**
+ * Calculates a complexity score for a chord based on the number of notes (triad, 7th, extended).
+ * @param {string} chordName - The name of the chord.
+ * @returns {number} A complexity score (0-3).
+ */
 const getChordComplexityScore = (chordName) => {
     const notes = Chord.get(chordName).notes;
     if (notes.length >= 5) return 3; // Extended chords (9ths, 11ths, 13ths)
@@ -36,11 +42,16 @@ const getChordComplexityScore = (chordName) => {
     return 0;
 };
 
+/**
+ * Calculates a tension score for a chord based on its quality (dim, aug, dom, etc.).
+ * @param {string} chordName - The name of the chord.
+ * @returns {number} A tension score (0-3).
+ */
 const getChordTensionScore = (chordName) => {
-    // FIX: Cast quality to string to avoid type errors with tonal's sometimes-incomplete ChordQuality type.
+    // Cast quality to string to avoid type errors with tonal's sometimes-incomplete ChordQuality type.
     const quality = Chord.get(chordName).quality as string;
     if (quality === 'Diminished' || quality === 'Augmented' || quality === 'Half-diminished') return 3;
-    // FIX: Added 'Dominant seventh' to correctly score tension for dominant 7th chords.
+    // Added 'Dominant seventh' to correctly score tension for dominant 7th chords.
     if (quality === 'Dominant' || quality === 'Major seventh' || quality === 'Dominant seventh') return 2;
     if (quality === 'Major' || quality === 'Minor' || quality === 'Minor seventh') return 1;
     return 0;
@@ -56,6 +67,7 @@ const MODE_DESCRIPTIONS = {
     locrian: 'Tense and unstable. The darkest mode, rarely used as a tonal center.'
 };
 
+// A dictionary mapping a Roman numeral to common subsequent Roman numerals.
 const DIATONIC_SUGGESTIONS = {
     'I': ['IV', 'V', 'ii', 'vi'],
     'i': ['iv', 'V', 'VI', 'iio'],
@@ -68,11 +80,11 @@ const DIATONIC_SUGGESTIONS = {
 };
 
 /**
- * Generates suggestions for the next chord.
- * @param contextChordName The name of the chord to generate suggestions from. Can be null.
- * @param musicalKey The tonic of the key.
- * @param musicalMode The mode of the key.
- * @returns An object with coherent and inventive suggestions.
+ * Generates suggestions for the next chord based on harmonic function and common practice.
+ * @param {string | null} contextChordName - The name of the chord to generate suggestions from. Can be null.
+ * @param {string} musicalKey - The tonic of the key.
+ * @param {string} musicalMode - The mode of the key.
+ * @returns {{coherent: string[], inventive: string[], jazzy: string[], classical: string[]}} An object with categorized suggestions.
  */
 export const getSuggestionsForChord = (contextChordName, musicalKey, musicalMode) => {
     const suggestions = {
@@ -87,19 +99,21 @@ export const getSuggestionsForChord = (contextChordName, musicalKey, musicalMode
         const contextChordRoman = getRomanNumeralForChord(contextChordName, musicalKey, musicalMode);
         
         if (contextChordRoman) {
+            // Simplify Roman numeral (e.g., 'vim7' -> 'vi') to match suggestion dictionary.
             const baseRomanMatch = contextChordRoman.match(/^(#|b)?(I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)/);
             if (baseRomanMatch) {
-                const simpleRoman = baseRomanMatch[2]; // just the roman part, e.g., 'vi' from 'vim7'
+                const simpleRoman = baseRomanMatch[2];
                 const suggestionNumerals = DIATONIC_SUGGESTIONS[simpleRoman] || DIATONIC_SUGGESTIONS[simpleRoman.toUpperCase()] || DIATONIC_SUGGESTIONS[simpleRoman.toLowerCase()];
                 
                 if (suggestionNumerals) {
                     suggestions.coherent = suggestionNumerals
                         .map(numeral => getChordFromRomanNumeral(numeral, musicalKey, musicalMode))
-                        .filter((c) => c !== null && c !== contextChordName);
+                        .filter((c): c is string => c !== null && c !== contextChordName);
                 }
             }
         }
     } else {
+        // If there's no context, suggest common starting chords.
         const startingNumerals = musicalMode === 'minor' ? ['i', 'iv', 'VI'] : ['I', 'vi', 'IV'];
         suggestions.coherent = startingNumerals.map(n => getChordFromRomanNumeral(n, musicalKey, musicalMode)).filter(Boolean);
     }
@@ -116,8 +130,7 @@ export const getSuggestionsForChord = (contextChordName, musicalKey, musicalMode
     
     const contextChordInfo = Chord.get(contextChordName || '');
 
-    // --- JAZZY Suggestions ---
-    // FIX: Cast quality to string to fix the type error and check for 'Dominant seventh' for correctness.
+    // --- JAZZY Suggestions (Alterations, Tritone Subs) ---
     if (!contextChordInfo.empty && ((contextChordInfo.quality as string) === "Dominant" || (contextChordInfo.quality as string) === "Dominant seventh")) {
         suggestions.jazzy.push(`${contextChordInfo.tonic}7b9`, `${contextChordInfo.tonic}7#5`);
         const tritoneSubNote = Note.transpose(contextChordInfo.tonic, 'd5');
@@ -126,20 +139,16 @@ export const getSuggestionsForChord = (contextChordName, musicalKey, musicalMode
     const iiChord = getChordFromRomanNumeral('ii', musicalKey, musicalMode);
     if (iiChord) suggestions.jazzy.push(iiChord.replace('m7', 'm9'));
 
-    // --- CLASSICAL Suggestions ---
-    // Secondary Dominants (V/V, V/vi, V/ii)
+    // --- CLASSICAL Suggestions (Secondary Dominants, Neapolitan) ---
     const V_of_V_Note = Note.transpose(musicalKey, 'M2');
     suggestions.classical.push(`${V_of_V_Note}7`);
-
     const V_of_vi_Note = Note.transpose(musicalKey, 'M6');
     suggestions.classical.push(`${V_of_vi_Note}7`);
-    
-    // Neapolitan Chord (bII)
     const neapolitanNote = Note.transpose(musicalKey, 'm2');
     suggestions.classical.push(`${neapolitanNote}maj`);
 
 
-    // --- Final Filtering ---
+    // --- Final Filtering (Remove nulls, duplicates, and the context chord itself) ---
     const filterAndUnique = (arr) => [...new Set(arr.filter(c => c && c !== contextChordName))];
     
     suggestions.coherent = filterAndUnique(suggestions.coherent);
@@ -150,6 +159,7 @@ export const getSuggestionsForChord = (contextChordName, musicalKey, musicalMode
     return suggestions;
 }
 
+// A dictionary of simplified harmonic function theory.
 const HARMONIC_FUNCTION_THEORY = {
     'I': {
         summary: "The tonic (I) is the 'home' chord, providing a sense of stability and rest. Progressions often begin here and seek to return.",
@@ -202,10 +212,10 @@ const HARMONIC_FUNCTION_THEORY = {
 
 /**
  * Provides music theory context for a given chord, including its function and possible next movements.
- * @param contextChordName The chord to analyze.
- * @param musicalKey The key of the progression.
- * @param musicalMode The mode of the progression.
- * @returns An object with a summary and a list of described movements, or null.
+ * @param {string} contextChordName - The chord to analyze.
+ * @param {string} musicalKey - The key of the progression.
+ * @param {string} musicalMode - The mode of the progression.
+ * @returns {{summary: string, movements: any[]} | null} An object with a summary and a list of described movements, or null.
  */
 export const getHarmonicTheoryForChord = (contextChordName, musicalKey, musicalMode) => {
     const contextRoman = getRomanNumeralForChord(contextChordName, musicalKey, musicalMode);
@@ -216,14 +226,14 @@ export const getHarmonicTheoryForChord = (contextChordName, musicalKey, musicalM
     if (!simpleRomanMatch) return null;
     const simpleRoman = simpleRomanMatch[2]; // e.g. 'V' or 'ii'
     
-    // Find theory based on the simplified numeral (e.g., 'ii' for 'iim7')
     const theory = HARMONIC_FUNCTION_THEORY[simpleRoman];
     if (!theory) return null;
     
+    // Resolve the Roman numerals in the theory dictionary to actual chord names in the current key.
     const resolvedMovements = theory.movements.map(movement => {
         const chordsToAdd = movement.to
             .map(numeral => getChordFromRomanNumeral(numeral, musicalKey, musicalMode))
-            .filter((c) => c !== null);
+            .filter((c): c is string => c !== null);
         return { ...movement, chordsToAdd };
     }).filter(m => m.chordsToAdd.length > 0);
 
@@ -234,25 +244,17 @@ export const getHarmonicTheoryForChord = (contextChordName, musicalKey, musicalM
 };
 
 /**
- * Analyzes a chord progression for frequency, common patterns, and suggestions.
- * @param progression An array of Chord objects.
- * @param musicalKey The tonic of the key.
- * @param musicalMode The mode of the key.
- * @returns An object with full analysis.
+ * Analyzes a full chord progression, calculating its characteristics and providing contextual hints.
+ * @param {any[]} progression - An array of Chord objects from the application state.
+ * @param {string} musicalKey - The tonic of the key.
+ * @param {string} musicalMode - The mode of the key.
+ * @returns {object} An object containing the full analysis results.
  */
 export const analyzeProgression = (progression, musicalKey, musicalMode) => {
     const validChords = progression.filter(c => c.notes.length > 0);
     const validChordNames = validChords.map(c => detectChordFromNotes(c.notes) || 'Unknown');
 
-    // Frequency Analysis
-    const chordFrequency = validChordNames.reduce((acc, name) => {
-        if (name !== 'Unknown') {
-            acc[name] = (acc[name] || 0) + 1;
-        }
-        return acc;
-    }, {});
-
-    // Richness & Consonance Analysis
+    // --- Progression Characteristics (Richness & Consonance) ---
     let totalComplexity = 0;
     let totalCommonTones = 0;
     let transitions = 0;
@@ -271,12 +273,13 @@ export const analyzeProgression = (progression, musicalKey, musicalMode) => {
         }
     }
 
-    const avgComplexity = validChords.length > 0 ? totalComplexity / validChords.length : 0; // Range 0-3
-    const avgSmoothness = transitions > 0 ? totalCommonTones / transitions : 0; // Range 0-4 approx
+    const avgComplexity = validChords.length > 0 ? totalComplexity / validChords.length : 0;
+    const avgSmoothness = transitions > 0 ? totalCommonTones / transitions : 0;
 
     const richnessScore = Math.round((avgComplexity / 3) * 100);
     const consonanceScore = Math.round((avgSmoothness / 4) * 100);
     
+    // Generate descriptive tags based on scores.
     const richnessTags = [];
     if (avgComplexity > 2.2) richnessTags.push('Jazzy & Complex');
     else if (avgComplexity > 1.5) richnessTags.push('Rich Harmonies');
@@ -294,7 +297,7 @@ export const analyzeProgression = (progression, musicalKey, musicalMode) => {
         consonanceTags,
     };
     
-    // Hints
+    // --- Contextual Hints ---
     const scale = Scale.get(`${musicalKey} ${musicalMode}`);
     const diatonicChords = getDiatonicChords(musicalKey, musicalMode);
     const borrowedChords = getBorrowedChords(musicalKey, musicalMode);
@@ -309,9 +312,5 @@ export const analyzeProgression = (progression, musicalKey, musicalMode) => {
         borrowedChords,
     };
 
-    // Note: The 'detectedPatterns' logic has been removed as per the design change.
-    // The new approach focuses on contextual theory rather than retrospective pattern matching.
-    const detectedPatterns = []; 
-
-    return { chordFrequency, detectedPatterns, analysis, hints };
+    return { analysis, hints };
 };

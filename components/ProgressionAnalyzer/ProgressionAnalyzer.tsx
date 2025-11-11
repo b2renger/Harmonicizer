@@ -1,13 +1,19 @@
+
 import React from 'react';
 import './ProgressionAnalyzer.css';
 import { getDisplayChordName, getAbbreviatedNameFromNotes } from '../../theory/chords.js';
 import CollapsibleSection from '../CollapsibleSection/CollapsibleSection.tsx';
 
+/**
+ * A circular dial for visualizing a score (0-100).
+ * @param {{ score: number }} props - The score to display.
+ */
 const ScoreDial = ({ score }) => {
     const radius = 50;
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (score / 100) * circumference;
 
+    // Change color based on score
     const scoreColor = score > 66 ? '#4facfe' : score > 33 ? '#ffbd6a' : '#e52e71';
 
     return (
@@ -36,7 +42,10 @@ const ScoreDial = ({ score }) => {
     );
 };
 
-
+/**
+ * Displays music theory analysis of the chord progression, including key/mode info,
+ * suggestions, and harmonic characteristics.
+ */
 const ProgressionAnalyzer = ({ 
     analysis, 
     onAddChords,
@@ -166,4 +175,4 @@ const ProgressionAnalyzer = ({
     );
 };
 
-export default ProgressionAnalyzer;
+export default React.memo(ProgressionAnalyzer);

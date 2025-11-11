@@ -1,7 +1,25 @@
+
 import React from 'react';
 import './TransportControls.css';
 
-const TransportControls = ({
+/**
+ * Interface for TransportControls props.
+ */
+interface TransportControlsProps {
+    isPlaying: boolean;
+    tempo: number;
+    isLooping: boolean;
+    onPlayToggle: () => void;
+    onTempoChange: (newTempo: number) => void;
+    onLoopToggle: () => void;
+}
+
+/**
+ * A presentational component for the main playback controls.
+ * It receives its state and callbacks from a parent component.
+ * @param {TransportControlsProps} props - The props for the component.
+ */
+const TransportControls: React.FC<TransportControlsProps> = ({
     isPlaying,
     tempo,
     isLooping,
@@ -48,4 +66,5 @@ const TransportControls = ({
     );
 };
 
-export default TransportControls;
+// Memoize the component to prevent re-renders if props haven't changed.
+export default React.memo(TransportControls);

@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Note, Scale, Mode, Chord } from 'tonal';
 import './VerticalNoteVisualizer.css';
@@ -41,9 +42,10 @@ const VerticalNoteVisualizer = ({ notes, musicalKey, musicalMode, onNotesChange 
         };
     }, [notes]);
 
-    const yAxisNotes = useMemo(() => {
+    // Generate all notes in the range for horizontal scrolling
+    const allDisplayNotes = useMemo(() => {
         const notes = [];
-        for (let midi = MAX_MIDI; midi >= MIN_MIDI; midi--) {
+        for (let midi = MIN_MIDI; midi <= MAX_MIDI; midi++) {
             notes.push({ midi, noteInfo: Note.get(Note.fromMidi(midi)) });
         }
         return notes;
@@ -72,7 +74,7 @@ const VerticalNoteVisualizer = ({ notes, musicalKey, musicalMode, onNotesChange 
             className={`vertical-note-visualizer ${isInteractive ? 'interactive' : ''}`}
             aria-label={`Interactive note visualizer`}
         >
-            {yAxisNotes.map(({ midi, noteInfo }) => {
+            {allDisplayNotes.map(({ midi, noteInfo }) => {
                 const isInChord = chordNotesInfo.noteMidiSet.has(midi);
                 const isRoot = midi === chordNotesInfo.rootNoteMidi;
                 const isAccidental = noteInfo.acc === '#' || noteInfo.acc === 'b';

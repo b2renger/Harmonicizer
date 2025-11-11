@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import TransportControls from '../../components/TransportControls/TransportControls.tsx';
 import ChordGrid from '../../components/ChordGrid/ChordGrid.tsx';
@@ -62,8 +63,15 @@ const DEFAULT_BASIC_SYNTH_SETTINGS = {
     volume: -9,
 };
 
-
+/**
+ * The Composer component is the main container and orchestrator for the application.
+ * It manages all application state, handles user interactions, and communicates with the
+ * audio player engine.
+ */
 const Composer = () => {
+    // --- STATE MANAGEMENT ---
+    
+    // Core progression data and history for undo functionality
     const [progression, setProgression] = useState([
         { id: crypto.randomUUID(), notes: ['C4', 'E4', 'G4', 'B4'], duration: 4 }, // Cmaj7
         { id: crypto.randomUUID(), notes: ['A3', 'C4', 'E4', 'G4'], duration: 4 }, // Am7
@@ -73,12 +81,13 @@ const Composer = () => {
     const [progressionHistory, setProgressionHistory] = useState([]);
     const [selectedChordId, setSelectedChordId] = useState(null);
 
+    // Transport and playback state
     const [isPlaying, setIsPlaying] = useState(false);
     const [tempo, setTempo] = useState(120);
     const [synthType, setSynthType] = useState('Rhodes');
     const [isLooping, setIsLooping] = useState(true);
     
-    // Synth-specific settings states
+    // State for individual synthesizer settings
     const [rhodesSettings, setRhodesSettings] = useState(DEFAULT_RHODES_SETTINGS);
     const [moogLeadSettings, setMoogLeadSettings] = useState(DEFAULT_MOOG_LEAD_SETTINGS);
     const [moogBassSettings, setMoogBassSettings] = useState(DEFAULT_MOOG_BASS_SETTINGS);
@@ -88,29 +97,33 @@ const Composer = () => {
     const [amSettings, setAmSettings] = useState(DEFAULT_AM_SETTINGS);
     const [basicSynthSettings, setBasicSynthSettings] = useState(DEFAULT_BASIC_SYNTH_SETTINGS);
 
-    // Global effects states
+    // Global effects state
     const [masterGain, setMasterGain] = useState(0.8);
     const [reverbWet, setReverbWet] = useState(0.2);
     const [reverbTime, setReverbTime] = useState(1.5);
 
-    // Arpeggiator states
+    // Arpeggiator state
     const [isArpeggiatorActive, setIsArpeggiatorActive] = useState(false);
     const [arpeggiatorTiming, setArpeggiatorTiming] = useState('16n');
     const [arpeggiatorRepeats, setArpeggiatorRepeats] = useState(Infinity);
 
+    // Music theory context state
     const [musicalKey, setMusicalKey] = useState('C');
     const [musicalMode, setMusicalMode] = useState('major');
     
+    // UI state
     const [currentlyPlayingChordId, setCurrentlyPlayingChordId] = useState(null);
-
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingChord, setEditingChord] = useState(null);
     const [contextualChord, setContextualChord] = useState(null);
     const [nextChordInProgression, setNextChordInProgression] = useState(null);
     const [isNoteVisualizerVisible, setIsNoteVisualizerVisible] = useState(false);
 
-
+    // A ref to hold the Player class instance, persisting it across re-renders without causing them.
     const player = useRef(null);
+
+    // --- MEMOIZED COMPUTATIONS ---
+    // These values are re-calculated only when their dependencies change, improving performance.
 
     const analysisResults = useMemo(() => {
         return analyzeProgression(progression, musicalKey, musicalMode);
@@ -135,7 +148,7 @@ const Composer = () => {
         return { categorized, harmonicTheory };
     }, [selectionContext, progression, musicalKey, musicalMode]);
 
-    // Memoize the current synth settings to avoid unnecessary re-renders and effects
+    // Memoize the current synth settings object to prevent unnecessary updates to the audio player.
     const currentSynthSettings = useMemo(() => {
         switch (synthType) {
             case 'Rhodes': return rhodesSettings;
@@ -150,93 +163,110 @@ const Composer = () => {
         }
     }, [synthType, rhodesSettings, moogLeadSettings, moogBassSettings, vcs3DroneSettings, vcs3FxSettings, fmSettings, amSettings, basicSynthSettings]);
 
+    // --- CALLBACKS & HANDLERS ---
+    // `useCallback` is used extensively to memoize event handlers, preventing child components
+    // from re-rendering unnecessarily when the Composer's state changes.
 
+    /**
+     * A wrapper for setProgression that also saves the previous state to history for undo.
+     */
     const setProgressionWithHistory = useCallback((newProgressionOrFn) => {
         setProgression(currentProgression => {
+            // Save the state *before* the update to the history.
             setProgressionHistory(prevHistory => {
                 const newHistory = [...prevHistory, currentProgression];
                  if (newHistory.length > MAX_HISTORY_SIZE) {
-                    return newHistory.slice(1);
+                    return newHistory.slice(1); // Keep history size manageable
                 }
                 return newHistory;
             });
+
+            // Get the new progression, whether it's a value or a function.
             const newProgression = typeof newProgressionOrFn === 'function' 
                 ? newProgressionOrFn(currentProgression) 
                 : newProgressionOrFn;
+
+            // If the currently selected chord was removed, reset the selection.
             if (selectedChordId && !newProgression.some(c => c.id === selectedChordId)) {
                 setSelectedChordId(null);
             }
             return newProgression;
         });
-    }, [selectedChordId]);
+    }, [selectedChordId]); // Dependency on selectedChordId is needed for the reset logic.
 
+    /**
+     * Reverts the progression to its previous state from the history stack.
+     */
     const handleUndo = useCallback(() => {
         if (progressionHistory.length === 0) return;
         const previousProgression = progressionHistory[progressionHistory.length - 1];
         const newHistory = progressionHistory.slice(0, -1);
-        setProgression(previousProgression);
+        setProgression(previousProgression); // Note: we don't use the history wrapper here
         setProgressionHistory(newHistory);
         if (selectedChordId && !previousProgression.some(c => c.id === selectedChordId)) {
             setSelectedChordId(null);
         }
     }, [progressionHistory, selectedChordId]);
 
+    // --- SIDE EFFECTS (`useEffect`) ---
+    // These hooks synchronize the React component state with the audio player engine (Player class).
+
+    // Effect for initial setup and teardown of the Player. Runs only once.
     useEffect(() => {
+        // The callback passed to Player allows it to update React state from the audio thread.
         player.current = new Player((id) => setCurrentlyPlayingChordId(id));
+        
+        // Initialize player with default state
         player.current.setTempo(tempo);
         player.current.setLoop(isLooping);
         player.current.setGain(masterGain);
         player.current.setReverbWet(reverbWet);
         player.current.setReverbTime(reverbTime);
         player.current.setArpeggiator(isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats);
-        
-        // Initial synth setup
         player.current.setSynth(synthType, currentSynthSettings);
         player.current.setProgression(progression);
 
+        // Cleanup function: dispose of the player and all Tone.js resources on unmount.
         return () => {
             player.current?.dispose();
         }
-    }, []); // Empty dependency array: runs only once on mount
+    }, []); // Empty dependency array ensures this runs only on mount and unmount.
 
+    // Effect to update the player when the progression or tempo changes.
     useEffect(() => {
-        if(player.current) {
-            player.current.setProgression(progression);
-        }
-    }, [progression]);
-
-     useEffect(() => {
         if(player.current) {
             player.current.setTempo(tempo);
             player.current.setProgression(progression);
         }
     }, [tempo, progression]);
 
+    // Effects for individual global settings
     useEffect(() => { player.current?.setGain(masterGain); }, [masterGain]);
     useEffect(() => { player.current?.setReverbWet(reverbWet); }, [reverbWet]);
     useEffect(() => { player.current?.setReverbTime(reverbTime); }, [reverbTime]);
 
-    // Effect to change the synth engine
+    // Effect to change the synth engine (a more expensive operation).
     useEffect(() => {
         player.current?.setSynth(synthType, currentSynthSettings);
-    }, [synthType]);
+    }, [synthType]); // Note: currentSynthSettings is NOT a dependency to avoid changing the whole synth on knob tweaks.
 
-    // Effect to update the current synth's settings
+    // Effect to update the current synth's parameters in real-time.
     useEffect(() => {
         player.current?.updateVoiceSettings(currentSynthSettings);
     }, [currentSynthSettings]);
 
+    // Effect to update the player when arpeggiator settings change.
     useEffect(() => {
         if (player.current) {
             player.current.setArpeggiator(isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats);
+            // The progression must be re-processed to apply new arpeggiator settings.
             player.current.setProgression(progression);
         }
     }, [isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, progression]);
 
     const handlePlayToggle = useCallback(async () => {
-        if (!player.current) return;
-        if (progression.length === 0) return;
-        await player.current.start();
+        if (!player.current || progression.length === 0) return;
+        await player.current.start(); // Ensure AudioContext is running
         if (isPlaying) {
             player.current.stop();
             setIsPlaying(false);
@@ -248,7 +278,9 @@ const Composer = () => {
     }, [isPlaying, progression.length]);
     
     const handleTempoChange = useCallback((newTempo) => { setTempo(newTempo); }, []);
+    
     const handleSynthChange = useCallback((newSynth) => { setSynthType(newSynth); }, []);
+    
     const handleLoopToggle = useCallback(() => {
         const newIsLooping = !isLooping;
         setIsLooping(newIsLooping);
@@ -258,6 +290,7 @@ const Composer = () => {
     const handleClearProgression = useCallback(() => { setProgressionWithHistory([]); }, [setProgressionWithHistory]);
 
     const handleFeelLucky = useCallback(() => {
+        // If progression is empty, generate a brand new one.
         if (progression.length === 0) {
             const newTempo = Math.floor(Math.random() * (160 - 80 + 1)) + 80;
             const newKey = rootNotes[Math.floor(Math.random() * rootNotes.length)];
@@ -275,7 +308,7 @@ const Composer = () => {
                 setMusicalMode(newMode);
                 setProgressionWithHistory(newChords);
             }
-        } else {
+        } else { // Otherwise, append 4 new suggested chords.
             const generatedChords = [];
             let currentContextChord = progression[progression.length - 1];
 
@@ -284,12 +317,14 @@ const Composer = () => {
                 const currentContextChordName = detectChordFromNotes(currentContextChord.notes);
                 if (!currentContextChordName) break;
                 const suggestions = getSuggestionsForChord(currentContextChordName, musicalKey, musicalMode);
+                // Prioritize coherent suggestions, but fall back to any diatonic chord.
                 let candidateChords = suggestions.coherent;
                 if (candidateChords.length === 0) {
                     const diatonicChords = getDiatonicChords(musicalKey, musicalMode).map(c => c.name);
                     candidateChords = diatonicChords.filter(c => c !== currentContextChordName);
                 }
                 if (candidateChords.length === 0) break;
+                
                 const nextChordName = candidateChords[Math.floor(Math.random() * candidateChords.length)];
                 const newChord = { id: crypto.randomUUID(), notes: getChordNotesWithOctaves(nextChordName, 4), duration: 4 };
                 generatedChords.push(newChord);
@@ -309,6 +344,7 @@ const Composer = () => {
         if (currentlyPlayingChordId === idToRemove) {
             setCurrentlyPlayingChordId(null);
         }
+        // If the last chord is removed while playing, stop playback.
         if (progression.length === 1 && progression[0].id === idToRemove && isPlaying) {
             player.current?.stop();
             setIsPlaying(false);
@@ -318,6 +354,8 @@ const Composer = () => {
     const handleEditChord = useCallback((chord) => {
         setEditingChord(chord || { id: crypto.randomUUID(), notes: [] });
         const chordIndex = chord && chord.id ? progression.findIndex(c => c.id === chord.id) : progression.length;
+        
+        // Find the previous chord with notes to provide harmonic context.
         let contextChord = null;
         if (progression.length > 1) {
             for (let i = 1; i < progression.length; i++) {
@@ -328,6 +366,8 @@ const Composer = () => {
                 }
             }
         }
+        
+        // Find the next chord with notes to show the transition.
         let nextChord = null;
         if (progression.length > 1) {
             for (let i = 1; i < progression.length; i++) {
@@ -345,6 +385,7 @@ const Composer = () => {
     }, [progression]);
 
     const handleSelectChord = useCallback((chordId) => {
+        // Toggle selection
         setSelectedChordId(currentId => (currentId === chordId ? null : chordId));
     }, []);
 
@@ -358,11 +399,12 @@ const Composer = () => {
     const handleSaveChord = useCallback((savedChord) => {
         setProgressionWithHistory(currentProgression => {
             const existingIndex = currentProgression.findIndex(c => c.id === editingChord?.id);
+            // If chord exists, update it.
             if (existingIndex > -1) {
                 const newProgression = [...currentProgression];
                 newProgression[existingIndex] = { ...savedChord, id: editingChord.id };
                 return newProgression;
-            } else {
+            } else { // Otherwise, add it to the end.
                 return [...currentProgression, { ...savedChord, id: editingChord.id }];
             }
         });
@@ -378,6 +420,7 @@ const Composer = () => {
             duration: 4,
         }));
         setProgressionWithHistory(currentProgression => {
+            // If a chord is selected, insert new chords after it.
             if (selectedChordId) {
                 const selectedIndex = currentProgression.findIndex(c => c.id === selectedChordId);
                 if (selectedIndex > -1) {
@@ -386,6 +429,7 @@ const Composer = () => {
                     return newProgression;
                 }
             }
+            // Otherwise, append to the end.
             return [...currentProgression, ...newChords];
         });
     }, [selectedChordId, setProgressionWithHistory]);
@@ -400,6 +444,7 @@ const Composer = () => {
         });
     }, [setProgressionWithHistory]);
 
+    // --- Voicing Change Handlers ---
     const handleNextInvertChord = useCallback((chordId) => {
         setProgressionWithHistory(currentProgression => {
             const index = currentProgression.findIndex(c => c.id === chordId);
@@ -437,7 +482,9 @@ const Composer = () => {
         });
     }, [setProgressionWithHistory]);
 
-
+    /** The context chord for the suggestion engine. Prefers the selected chord,
+     *  otherwise falls back to the last chord in the progression.
+     */
     const suggestionContextChord = useMemo(() => {
         const chord = selectionContext || (progression.length > 0 ? progression[progression.length - 1] : null)
         if (!chord) return null;

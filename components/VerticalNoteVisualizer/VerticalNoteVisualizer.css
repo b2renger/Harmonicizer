@@ -1,3 +1,4 @@
+
 .vertical-note-visualizer {
     display: flex;
     flex-direction: column; /* Render top-to-bottom */
@@ -103,7 +104,8 @@
 }
 
 
-@keyframes growVertical {
+/* Remove vertical animation, will use horizontal animation below if needed */
+/* @keyframes growVertical {
     from {
         opacity: 0;
         transform: scaleY(0);
@@ -114,7 +116,7 @@
         transform: scaleY(1);
         transform-origin: top;
     }
-}
+} */
 
 @keyframes growHorizontal {
     from {
@@ -129,25 +131,50 @@
     }
 }
 
-@media (max-width: 768px) and (orientation: portrait) {
+/* Updated media query for small screens (portrait and landscape) */
+@media (max-width: 768px) {
     .vertical-note-visualizer {
-        flex-direction: row;
+        flex-direction: row; /* Horizontal layout for notes */
         margin-top: 0;
-        height: 100%;
-        width: auto;
-        padding: 0.25rem;
-        animation-name: growHorizontal;
-        gap: 2px;
+        width: 100%; /* Fill parent width when placed in a column */
+        height: 100px; /* Fixed height for the visualizer container */
+        padding: 0; /* Remove internal padding for more space */
+        animation-name: growHorizontal; /* Apply horizontal grow animation */
+        gap: 0; /* Remove gap between note rows */
+        align-items: stretch; /* Ensure note-rows fill available height */
+        overflow-x: auto; /* Enable horizontal scrolling */
+        white-space: nowrap; /* Prevent note rows from wrapping */
     }
 
     .note-row {
         padding: 4px 2px;
         flex-direction: column-reverse; /* Put R at top */
         font-size: 0.7rem;
+        flex-shrink: 0; /* Important for horizontal scrolling */
+        width: 50px; /* Fixed width for each note column */
+        height: 100%; /* Fill parent height */
+        justify-content: space-around; /* Distribute content vertically */
+        border-right: 1px solid #444; /* Add separator between notes */
+        border-radius: 0; /* No individual border radius */
+    }
+
+    .note-row:last-child {
+        border-right: none; /* No border on the last note */
     }
     
     .note-name-octave {
         writing-mode: vertical-rl;
         text-orientation: mixed;
+        flex-grow: unset; /* Don't grow, let fixed width handle it */
+    }
+
+    .scale-degree-roman {
+        min-width: unset; /* Remove min-width for stacking */
+        text-align: center;
+    }
+
+    .note-root-indicator {
+        min-width: unset; /* Remove min-width for stacking */
+        text-align: center;
     }
 }

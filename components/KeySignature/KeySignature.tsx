@@ -1,7 +1,24 @@
+
 import React from 'react';
 import './KeySignature.css';
 
-const KeySignature = ({
+/**
+ * Interface for KeySignature props.
+ */
+interface KeySignatureProps {
+    currentKey: string;
+    currentMode: string;
+    onKeyChange: (newKey: string) => void;
+    onModeChange: (newMode: string) => void;
+    rootNotes: string[];
+    modes: string[];
+}
+
+/**
+ * A component with dropdowns to select the musical key and mode.
+ * @param {KeySignatureProps} props - The props for the component.
+ */
+const KeySignature: React.FC<KeySignatureProps> = ({
     currentKey,
     currentMode,
     onKeyChange,
@@ -43,4 +60,4 @@ const KeySignature = ({
     );
 };
 
-export default KeySignature;
+export default React.memo(KeySignature);

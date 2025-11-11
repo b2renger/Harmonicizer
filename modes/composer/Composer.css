@@ -72,3 +72,10 @@
         transform: translateY(0);
     }
 }
+
+@media (max-width: 768px) {
+    .secondary-controls {
+        justify-content: center; /* Center controls when they wrap */
+        gap: 1rem; /* Reduce gap on smaller screens */
+    }
+}

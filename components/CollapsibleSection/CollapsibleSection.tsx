@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import './CollapsibleSection.css';
 
-const CollapsibleSection = ({ title, children, defaultOpen }) => {
+// Define the props interface explicitly, including children.
+interface CollapsibleSectionProps extends React.PropsWithChildren {
+    title: string;
+    defaultOpen?: boolean; // defaultOpen is optional as it has a default value in useState
+}
+
+// Update the component signature to use the defined props interface
+const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, children, defaultOpen }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen ?? false);
 
     const toggleOpen = () => {

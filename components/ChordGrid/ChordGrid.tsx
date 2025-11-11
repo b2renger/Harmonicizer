@@ -1,9 +1,34 @@
+
 import React, { useState } from 'react';
 import ChordCard from '../ChordCard/ChordCard.tsx';
 import VerticalNoteVisualizer from '../VerticalNoteVisualizer/VerticalNoteVisualizer.tsx';
 import './ChordGrid.css';
 
-const ChordGrid = ({ 
+/**
+ * Interface for ChordGrid props.
+ */
+interface ChordGridProps {
+    progression: any[];
+    onEditChord: (chord: any) => void;
+    onSelectChord: (id: string) => void;
+    selectedChordId: string | null;
+    currentlyPlayingChordId: string | null;
+    onRemoveChord: (id: string) => void;
+    onReorderProgression: (newProgression: any[]) => void;
+    onNextInvertChord: (id: string) => void;
+    onPreviousInvertChord: (id: string) => void;
+    onPermuteChord: (id: string) => void;
+    isNoteVisualizerVisible: boolean;
+    onChordNotesUpdate: (id: string, newNotes: string[]) => void;
+    musicalKey: string;
+    musicalMode: string;
+}
+
+/**
+ * Renders the grid of chord cards and handles drag-and-drop reordering.
+ * @param {ChordGridProps} props - The props for the component.
+ */
+const ChordGrid: React.FC<ChordGridProps> = ({ 
     progression, 
     onEditChord,
     onSelectChord,
@@ -22,25 +47,45 @@ const ChordGrid = ({
     const [draggedChordId, setDraggedChordId] = useState(null);
     const [dragOverChordId, setDragOverChordId] = useState(null);
 
+    /**
+     * Handles the start of a drag operation.
+     * @param e The drag event.
+     * @param chordId The ID of the chord being dragged.
+     */
     const handleDragStart = (e, chordId) => {
         setDraggedChordId(chordId);
         e.dataTransfer.effectAllowed = 'move';
+        // Use a timeout to allow the browser to generate the drag preview
+        // before applying the 'is-dragging' class to the original element.
         setTimeout(() => {
             (e.currentTarget.parentNode).classList.add('is-dragging-wrapper');
         }, 0);
     };
 
+    /**
+     * Handles when a dragged item is over another chord card.
+     * @param e The drag event.
+     * @param chordId The ID of the chord being dragged over.
+     */
     const handleDragOver = (e, chordId) => {
-        e.preventDefault();
+        e.preventDefault(); // Necessary to allow dropping
         if (chordId !== dragOverChordId) {
             setDragOverChordId(chordId);
         }
     };
     
+    /**
+     * Handles when a dragged item leaves the area of another chord card.
+     */
     const handleDragLeave = (e) => {
         setDragOverChordId(null);
     };
 
+    /**
+     * Handles the drop event to reorder the progression.
+     * @param e The drop event.
+     * @param targetChordId The ID of the chord where the dragged chord was dropped.
+     */
     const handleDrop = (e, targetChordId) => {
         e.preventDefault();
         if (!draggedChordId || draggedChordId === targetChordId) {
@@ -48,19 +93,13 @@ const ChordGrid = ({
             return;
         }
 
-        const draggedChord = progression.find(c => c.id === draggedChordId);
-        if (!draggedChord) {
-            cleanupDragState();
-            return;
-        };
-
-        const remainingChords = progression.filter(c => c.id !== draggedChordId);
-        let targetIndex = remainingChords.findIndex(c => c.id === targetChordId);
-
-        // If dropping on the dragged item's original wrapper, target index can be tricky.
-        // A better way is to find the index of the drop target in the original array.
         const originalTargetIndex = progression.findIndex(c => c.id === targetChordId);
         const originalDraggedIndex = progression.findIndex(c => c.id === draggedChordId);
+
+        if (originalDraggedIndex === -1 || originalTargetIndex === -1) {
+            cleanupDragState();
+            return;
+        }
 
         const newProgression = [...progression];
         const [removed] = newProgression.splice(originalDraggedIndex, 1);
@@ -70,12 +109,18 @@ const ChordGrid = ({
         cleanupDragState();
     };
 
+    /**
+     * Resets all drag-related state and removes visual classes.
+     */
     const cleanupDragState = () => {
         document.querySelectorAll('.is-dragging-wrapper').forEach(el => el.classList.remove('is-dragging-wrapper'));
         setDraggedChordId(null);
         setDragOverChordId(null);
     }
     
+    /**
+     * Handles the end of a drag operation (e.g., if dropped outside a valid target).
+     */
     const handleDragEnd = (e) => {
        cleanupDragState();
     };
@@ -103,7 +148,7 @@ const ChordGrid = ({
                         onNextInvert={() => onNextInvertChord(chord.id)}
                         onPreviousInvert={() => onPreviousInvertChord(chord.id)}
                         onPermute={() => onPermuteChord(chord.id)}
-                        // Drag and Drop props
+                        // Pass down drag and drop handlers
                         onDragStart={(e) => handleDragStart(e, chord.id)}
                         onDragEnd={handleDragEnd}
                         onDragOver={(e) => handleDragOver(e, chord.id)}
@@ -131,4 +176,4 @@ const ChordGrid = ({
     );
 };
 
-export default ChordGrid;
+export default React.memo(ChordGrid);

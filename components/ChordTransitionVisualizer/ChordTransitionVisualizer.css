@@ -1,3 +1,4 @@
+
 .chord-transition-visualizer-container {
     background-color: #000000;
     border-radius: 8px;
@@ -134,5 +135,11 @@
     }
     100% {
         box-shadow: 0 0 2px rgba(79, 172, 254, 0.3);
+    }
+}
+
+@media (max-width: 768px) {
+    .chord-transition-visualizer {
+        height: 100px; /* Fixed height for consistency on mobile */
     }
 }
