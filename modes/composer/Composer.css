@@ -1,3 +1,5 @@
+
+
 .composer {
     display: flex;
     flex-direction: column;
@@ -44,6 +46,33 @@
     border-top: 1px solid #333;
     padding-top: 1rem;
 }
+
+.io-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    align-items: flex-start;
+    padding: 0.5rem 1rem;
+}
+
+.io-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.io-label {
+    font-size: 0.9rem;
+    color: #a0a0a0;
+    font-weight: 700;
+}
+
+.io-buttons {
+    display: flex;
+    gap: 1rem;
+}
+
 
 @keyframes fadeIn {
     from {

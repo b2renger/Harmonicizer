@@ -41,7 +41,7 @@ const TransportControls: React.FC<TransportControlsProps> = ({
                         </svg>
                     )}
                 </button>
-                 <button className={`control-button ${isLooping ? 'active' : ''}`} aria-label="Toggle Loop" onClick={onLoopToggle}>
+                 <button className={`control-button ${isLooping ? 'active' : ''}`} aria-label={isLooping ? "Disable Loop" : "Enable Loop"} onClick={onLoopToggle}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M17 1l4 4-4 4"/>
                         <path d="M3 11V9a4 4 0 0 1 4-4h14"/>

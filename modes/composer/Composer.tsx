@@ -1,6 +1,7 @@
-
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import * as Tone from 'tone';
+import { Midi } from '@tonejs/midi';
+import { Note } from 'tonal';
 import TransportControls from '../../components/TransportControls/TransportControls.tsx';
 import ChordGrid from '../../components/ChordGrid/ChordGrid.tsx';
 import ChordSelector from '../../components/ChordSelector/ChordSelector.tsx';
@@ -118,16 +119,17 @@ const Composer = ({ screenWidth, screenHeight }) => {
     const [editingChord, setEditingChord] = useState(null);
     const [isNoteVisualizerVisible, setIsNoteVisualizerVisible] = useState(false);
 
-    // A ref to hold the Player class instance, persisting it across re-renders without causing them.
-    const player = useRef(null);
+    // Refs for audio engine and file input
+    const player = useRef<Player | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
 
     // --- MEMOIZED COMPUTATIONS ---
-    // These values are re-calculated only when their dependencies change, improving performance.
 
-    const analysisResults = useMemo(() => {
-        return analyzeProgression(progression, musicalKey, musicalMode);
-    }, [progression, musicalKey, musicalMode]);
-
+    // Memoizes the analysis of the entire progression. Re-calculates only when the progression or key changes.
+    const analysisResults = useMemo(() => analyzeProgression(progression, musicalKey, musicalMode), [progression, musicalKey, musicalMode]);
+    
+    // Memoizes the currently selected chord for providing context to other components.
     const selectionContext = useMemo(() => {
         if (!selectedChordId || progression.length === 0) return null;
         const selectedIndex = progression.findIndex(c => c.id === selectedChordId);
@@ -135,6 +137,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
         return progression[selectedIndex];
     }, [selectedChordId, progression]);
 
+    // Memoizes chord suggestions. Suggestions are based on the selected chord, or the last chord if none is selected.
     const exhaustiveSuggestions = useMemo(() => {
         const contextChord = selectionContext 
             ? selectionContext
@@ -147,7 +150,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
         return { categorized, harmonicTheory };
     }, [selectionContext, progression, musicalKey, musicalMode]);
 
-    // Memoize the current synth settings object to prevent unnecessary updates to the audio player.
+    // Memoizes the settings object for the currently active synthesizer.
     const currentSynthSettings = useMemo(() => {
         switch (synthType) {
             case 'Rhodes': return rhodesSettings;
@@ -163,24 +166,22 @@ const Composer = ({ screenWidth, screenHeight }) => {
     }, [synthType, rhodesSettings, moogLeadSettings, moogBassSettings, vcs3DroneSettings, vcs3FxSettings, fmSettings, amSettings, basicSynthSettings]);
 
     // --- CALLBACKS & HANDLERS ---
-    // `useCallback` is used extensively to memoize event handlers, preventing child components
-    // from re-rendering unnecessarily when the Composer's state changes.
-
+    
     /**
-     * A wrapper for setProgression that also saves the previous state to history for undo.
+     * A wrapper for setProgression that also saves the previous state to a history buffer for undo functionality.
      */
     const setProgressionWithHistory = useCallback((newProgressionOrFn) => {
         setProgression(currentProgression => {
-            // Save the state *before* the update to the history.
+            // Push the current state to history before updating.
             setProgressionHistory(prevHistory => {
                 const newHistory = [...prevHistory, currentProgression];
                  if (newHistory.length > MAX_HISTORY_SIZE) {
-                    return newHistory.slice(1); // Keep history size manageable
+                    return newHistory.slice(1); // Keep history size bounded.
                 }
                 return newHistory;
             });
 
-            // Get the new progression, whether it's a value or a function.
+            // Calculate the new progression state.
             const newProgression = typeof newProgressionOrFn === 'function' 
                 ? newProgressionOrFn(currentProgression) 
                 : newProgressionOrFn;
@@ -191,31 +192,31 @@ const Composer = ({ screenWidth, screenHeight }) => {
             }
             return newProgression;
         });
-    }, [selectedChordId]); // Dependency on selectedChordId is needed for the reset logic.
+    }, [selectedChordId]);
 
     /**
-     * Reverts the progression to its previous state from the history stack.
+     * Reverts the progression to its previous state from the history buffer.
      */
     const handleUndo = useCallback(() => {
         if (progressionHistory.length === 0) return;
         const previousProgression = progressionHistory[progressionHistory.length - 1];
         const newHistory = progressionHistory.slice(0, -1);
-        setProgression(previousProgression); // Note: we don't use the history wrapper here
+        setProgression(previousProgression);
         setProgressionHistory(newHistory);
+        // Deselect chord if it no longer exists in the reverted state.
         if (selectedChordId && !previousProgression.some(c => c.id === selectedChordId)) {
             setSelectedChordId(null);
         }
     }, [progressionHistory, selectedChordId]);
 
     // --- SIDE EFFECTS (`useEffect`) ---
-    // These hooks synchronize the React component state with the audio player engine (Player class).
 
-    // Effect for initial setup and teardown of the Player. Runs only once.
+    // This effect runs only once on component mount to initialize the audio player.
     useEffect(() => {
-        // The callback passed to Player allows it to update React state from the audio thread.
+        // Create the Player instance and store it in a ref.
         player.current = new Player((id) => setCurrentlyPlayingChordId(id));
         
-        // Initialize player with default state
+        // Set initial parameters on the player.
         player.current.setTempo(tempo);
         player.current.setLoop(isLooping);
         player.current.setGain(masterGain);
@@ -225,47 +226,45 @@ const Composer = ({ screenWidth, screenHeight }) => {
         player.current.setSynth(synthType, currentSynthSettings);
         player.current.setProgression(progression);
 
-        // Cleanup function: dispose of the player and all Tone.js resources on unmount.
+        // Cleanup function to dispose of the player and its resources on component unmount.
         return () => {
             player.current?.dispose();
         }
-    }, []); // Empty dependency array ensures this runs only on mount and unmount.
+    }, []); // Empty dependency array ensures this runs only once.
 
-    // Effect to update the player when the progression or tempo changes.
+    // These effects synchronize the audio player's state with the component's state whenever a property changes.
     useEffect(() => {
         if(player.current) {
             player.current.setTempo(tempo);
-            player.current.setProgression(progression);
+            player.current.setProgression(progression); // Progression is also needed for timing calculations.
         }
     }, [tempo, progression]);
 
-    // Effects for individual global settings
     useEffect(() => { player.current?.setGain(masterGain); }, [masterGain]);
     useEffect(() => { player.current?.setReverbWet(reverbWet); }, [reverbWet]);
     useEffect(() => { player.current?.setReverbTime(reverbTime); }, [reverbTime]);
 
-    // Effect to change the synth engine (a more expensive operation).
-    useEffect(() => {
-        player.current?.setSynth(synthType, currentSynthSettings);
-    }, [synthType]); // Note: currentSynthSettings is NOT a dependency to avoid changing the whole synth on knob tweaks.
+    // When the synthType changes, a more complex `setSynth` method is called in the player.
+    useEffect(() => { player.current?.setSynth(synthType, currentSynthSettings); }, [synthType, currentSynthSettings]);
 
-    // Effect to update the current synth's parameters in real-time.
-    useEffect(() => {
-        player.current?.updateVoiceSettings(currentSynthSettings);
-    }, [currentSynthSettings]);
+    // When only the settings of the current synth change, a simpler update method is called.
+    useEffect(() => { player.current?.updateVoiceSettings(currentSynthSettings); }, [currentSynthSettings]);
 
-    // Effect to update the player when arpeggiator settings change.
+    // Sync arpeggiator settings with the audio player.
     useEffect(() => {
         if (player.current) {
             player.current.setArpeggiator(isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats);
-            // The progression must be re-processed to apply new arpeggiator settings.
-            player.current.setProgression(progression);
+            player.current.setProgression(progression); // Re-send progression to rebuild part with arp logic.
         }
     }, [isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, progression]);
-
+    
+    /**
+     * Toggles the master playback of the chord progression.
+     */
     const handlePlayToggle = useCallback(async () => {
         if (!player.current || progression.length === 0) return;
-        await player.current.start(); // Ensure AudioContext is running
+        // Start the audio context if it's not running (required by browsers).
+        await player.current.start(); 
         if (isPlaying) {
             player.current.stop();
             setIsPlaying(false);
@@ -276,10 +275,9 @@ const Composer = ({ screenWidth, screenHeight }) => {
         }
     }, [isPlaying, progression.length]);
     
+    // --- Event Handlers for UI elements ---
     const handleTempoChange = useCallback((newTempo) => { setTempo(newTempo); }, []);
-    
     const handleSynthChange = useCallback((newSynth) => { setSynthType(newSynth); }, []);
-    
     const handleLoopToggle = useCallback(() => {
         const newIsLooping = !isLooping;
         setIsLooping(newIsLooping);
@@ -288,9 +286,13 @@ const Composer = ({ screenWidth, screenHeight }) => {
 
     const handleClearProgression = useCallback(() => { setProgressionWithHistory([]); }, [setProgressionWithHistory]);
 
+    /**
+     * Generates new chords based on context. If the progression is empty, it creates a full random
+     * progression. If not, it intelligently suggests and appends 4 new chords.
+     */
     const handleFeelLucky = useCallback(() => {
-        // If progression is empty, generate a brand new one.
         if (progression.length === 0) {
+            // Generate a full new progression from scratch.
             const newTempo = Math.floor(Math.random() * (160 - 80 + 1)) + 80;
             const newKey = rootNotes[Math.floor(Math.random() * rootNotes.length)];
             const newMode = modes[Math.floor(Math.random() * modes.length)];
@@ -307,7 +309,8 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 setMusicalMode(newMode);
                 setProgressionWithHistory(newChords);
             }
-        } else { // Otherwise, append 4 new suggested chords.
+        } else {
+            // Append 4 new chords based on the last chord in the progression.
             const generatedChords = [];
             let currentContextChord = progression[progression.length - 1];
 
@@ -315,19 +318,21 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 if (!currentContextChord || currentContextChord.notes.length === 0) break;
                 const currentContextChordName = detectChordFromNotes(currentContextChord.notes);
                 if (!currentContextChordName) break;
+                // Get harmonically coherent suggestions.
                 const suggestions = getSuggestionsForChord(currentContextChordName, musicalKey, musicalMode);
-                // Prioritize coherent suggestions, but fall back to any diatonic chord.
                 let candidateChords = suggestions.coherent;
+                // Fallback to any diatonic chord if no specific suggestions are found.
                 if (candidateChords.length === 0) {
                     const diatonicChords = getDiatonicChords(musicalKey, musicalMode).map(c => c.name);
                     candidateChords = diatonicChords.filter(c => c !== currentContextChordName);
                 }
                 if (candidateChords.length === 0) break;
                 
+                // Pick a random chord from the candidates and create the new chord object.
                 const nextChordName = candidateChords[Math.floor(Math.random() * candidateChords.length)];
                 const newChord = { id: crypto.randomUUID(), notes: getChordNotesWithOctaves(nextChordName, 4), duration: 4 };
                 generatedChords.push(newChord);
-                currentContextChord = newChord;
+                currentContextChord = newChord; // The new chord becomes the context for the next iteration.
             }
 
             if (generatedChords.length > 0) {
@@ -356,7 +361,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
     }, []);
 
     const handleSelectChord = useCallback((chordId) => {
-        // Toggle selection
+        // Toggle selection: selecting the same chord twice deselects it.
         setSelectedChordId(currentId => (currentId === chordId ? null : chordId));
     }, []);
 
@@ -368,12 +373,13 @@ const Composer = ({ screenWidth, screenHeight }) => {
     const handleSaveChord = useCallback((savedChord) => {
         setProgressionWithHistory(currentProgression => {
             const existingIndex = currentProgression.findIndex(c => c.id === editingChord?.id);
-            // If chord exists, update it.
             if (existingIndex > -1) {
+                // If editing an existing chord, replace it in the array.
                 const newProgression = [...currentProgression];
                 newProgression[existingIndex] = { ...savedChord, id: editingChord.id };
                 return newProgression;
-            } else { // Otherwise, add it to the end.
+            } else {
+                // If adding a new chord, append it.
                 return [...currentProgression, { ...savedChord, id: editingChord.id }];
             }
         });
@@ -389,7 +395,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
             duration: 4,
         }));
         setProgressionWithHistory(currentProgression => {
-            // If a chord is selected, insert new chords after it.
+            // If a chord is selected, insert the new chords after it.
             if (selectedChordId) {
                 const selectedIndex = currentProgression.findIndex(c => c.id === selectedChordId);
                 if (selectedIndex > -1) {
@@ -398,11 +404,12 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     return newProgression;
                 }
             }
-            // Otherwise, append to the end.
+            // Otherwise, append them to the end.
             return [...currentProgression, ...newChords];
         });
     }, [selectedChordId, setProgressionWithHistory]);
 
+    // This handler is called from the interactive note visualizer to update a chord's notes directly.
     const handleChordNotesUpdate = useCallback((chordId, newNotes) => {
         setProgressionWithHistory(currentProgression => {
             const index = currentProgression.findIndex(c => c.id === chordId);
@@ -413,7 +420,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
         });
     }, [setProgressionWithHistory]);
 
-    // --- Voicing Change Handlers ---
+    // Handlers for changing a chord's voicing (inversions, permutations).
     const handleNextInvertChord = useCallback((chordId) => {
         setProgressionWithHistory(currentProgression => {
             const index = currentProgression.findIndex(c => c.id === chordId);
@@ -451,9 +458,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
         });
     }, [setProgressionWithHistory]);
 
-    /** The context chord for the suggestion engine. Prefers the selected chord,
-     *  otherwise falls back to the last chord in the progression.
-     */
     const suggestionContextChord = useMemo(() => {
         const chord = selectionContext || (progression.length > 0 ? progression[progression.length - 1] : null)
         if (!chord) return null;
@@ -463,12 +467,209 @@ const Composer = ({ screenWidth, screenHeight }) => {
         }
     }, [selectionContext, progression]);
 
+    // --- Import / Export Handlers ---
+
+    /**
+     * Gathers the entire session state into an object and triggers a JSON file download.
+     */
+    const handleExport = useCallback(() => {
+        const sessionData = {
+            version: 1,
+            progression,
+            tempo,
+            synthType,
+            isLooping,
+            masterGain,
+            reverbWet,
+            reverbTime,
+            isArpeggiatorActive,
+            arpeggiatorTiming,
+            arpeggiatorRepeats,
+            musicalKey,
+            musicalMode,
+            synthSettings: {
+                Rhodes: rhodesSettings,
+                MoogLead: moogLeadSettings,
+                MoogBass: moogBassSettings,
+                VCS3Drone: vcs3DroneSettings,
+                VCS3FX: vcs3FxSettings,
+                FMSynth: fmSettings,
+                AMSynth: amSettings,
+                Synth: basicSynthSettings,
+            }
+        };
+
+        const jsonString = JSON.stringify(sessionData, null, 2); // Pretty print
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `harmonicizer-session-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, [
+        progression, tempo, synthType, isLooping, masterGain, reverbWet, reverbTime,
+        isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, musicalKey, musicalMode,
+        rhodesSettings, moogLeadSettings, moogBassSettings, vcs3DroneSettings, vcs3FxSettings,
+        fmSettings, amSettings, basicSynthSettings
+    ]);
+    
+    /**
+     * Exports the current progression to a standard MIDI file.
+     */
+    const handleExportMidi = useCallback(async () => {
+        const midi = new Midi();
+        const track = midi.addTrack();
+        track.name = "Harmonicizer Progression";
+        midi.header.setTempo(tempo);
+    
+        let currentTime = 0; // Time in seconds
+    
+        for (const chord of progression) {
+            const chordDurationInSeconds = (60 / tempo) * chord.duration;
+            const notes = chord.notes;
+    
+            if (notes.length > 0) {
+                if (isArpeggiatorActive) {
+                    const arpeggioTimingAsSeconds = Tone.Time(arpeggiatorTiming).toSeconds();
+                    if (arpeggioTimingAsSeconds > 0) {
+                        const numNotesInArp = Math.floor(chordDurationInSeconds / arpeggioTimingAsSeconds);
+                        // Make arpeggiated notes slightly staccato for clarity
+                        const finalNoteDuration = Math.min(arpeggioTimingAsSeconds * 0.9, 0.5); 
+                        
+                        for (let i = 0; i < numNotesInArp; i++) {
+                            const note = notes[i % notes.length];
+                            track.addNote({
+                                name: note,
+                                time: currentTime + (i * arpeggioTimingAsSeconds),
+                                duration: finalNoteDuration,
+                                velocity: 0.8
+                            });
+                        }
+                    }
+                } else {
+                    // Block chord - add each note individually for true polyphony
+                    notes.forEach(note => {
+                        track.addNote({
+                            name: note,
+                            time: currentTime,
+                            duration: chordDurationInSeconds,
+                            velocity: 0.8
+                        });
+                    });
+                }
+            }
+            currentTime += chordDurationInSeconds;
+        }
+        
+        const blob = new Blob([midi.toArray()], { type: "audio/midi" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `harmonicizer-progression-${new Date().toISOString().slice(0, 10)}.mid`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, [progression, tempo, isArpeggiatorActive, arpeggiatorTiming]);
+
+    /**
+     * Opens the file dialog by programmatically clicking the hidden file input.
+     */
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    /**
+     * Reads and parses the selected JSON file, then updates the application state.
+     */
+    const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const result = e.target?.result;
+                if (typeof result !== 'string') return;
+                const importedData = JSON.parse(result);
+
+                // --- Safely update state from imported data ---
+                if (importedData.progression && Array.isArray(importedData.progression)) {
+                    // Always generate new IDs to prevent key conflicts and state issues.
+                    const progressionWithNewIds = importedData.progression.map(chord => ({
+                        ...chord,
+                        id: crypto.randomUUID()
+                    }));
+                    setProgressionWithHistory(progressionWithNewIds);
+                }
+                if (typeof importedData.tempo === 'number') setTempo(importedData.tempo);
+                if (typeof importedData.synthType === 'string') setSynthType(importedData.synthType);
+                if (typeof importedData.isLooping === 'boolean') setIsLooping(importedData.isLooping);
+                if (typeof importedData.masterGain === 'number') setMasterGain(importedData.masterGain);
+                if (typeof importedData.reverbWet === 'number') setReverbWet(importedData.reverbWet);
+                if (typeof importedData.reverbTime === 'number') setReverbTime(importedData.reverbTime);
+                if (typeof importedData.isArpeggiatorActive === 'boolean') setIsArpeggiatorActive(importedData.isArpeggiatorActive);
+                if (typeof importedData.arpeggiatorTiming === 'string') setArpeggiatorTiming(importedData.arpeggiatorTiming);
+                if (typeof importedData.arpeggiatorRepeats === 'number') setArpeggiatorRepeats(importedData.arpeggiatorRepeats);
+                if (typeof importedData.musicalKey === 'string') setMusicalKey(importedData.musicalKey);
+                if (typeof importedData.musicalMode === 'string') setMusicalMode(importedData.musicalMode);
+
+                if (importedData.synthSettings) {
+                    // Merge imported settings with current settings to prevent crashes if a property is missing.
+                    setRhodesSettings(c => ({...c, ...importedData.synthSettings.Rhodes}));
+                    setMoogLeadSettings(c => ({...c, ...importedData.synthSettings.MoogLead}));
+                    setMoogBassSettings(c => ({...c, ...importedData.synthSettings.MoogBass}));
+                    setVcs3DroneSettings(c => ({...c, ...importedData.synthSettings.VCS3Drone}));
+                    setVcs3FxSettings(c => ({...c, ...importedData.synthSettings.VCS3FX}));
+                    setFmSettings(c => ({...c, ...importedData.synthSettings.FMSynth}));
+                    setAmSettings(c => ({...c, ...importedData.synthSettings.AMSynth}));
+                    setBasicSynthSettings(c => ({...c, ...importedData.synthSettings.Synth}));
+                }
+
+            } catch (error) {
+                console.error("Error importing session file:", error);
+                alert("Could not import the session file. It may be corrupted or in the wrong format.");
+            }
+        };
+        reader.readAsText(file);
+        // Reset file input value to allow importing the same file again if needed.
+        event.target.value = '';
+    };
+
     return (
         <div className="composer">
             <header className="composer-header">
                 <h1>Harmonicizer</h1>
                 <p>Build and explore your chord progressions.</p>
             </header>
+
+            <CollapsibleSection title="Import / Export" defaultOpen={true}>
+                 <div className="io-controls">
+                    <div className="io-group">
+                        <span className="io-label">Session</span>
+                        <div className="io-buttons">
+                            <button className="control-button" aria-label="Import session from JSON" onClick={handleImportClick} title="Import Session (JSON)">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+                            </button>
+                            <input type="file" ref={fileInputRef} onChange={handleFileImport} style={{ display: 'none' }} accept="application/json" />
+                            <button className="control-button" aria-label="Export session to JSON" onClick={handleExport} title="Export Session (JSON)">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div className="io-group">
+                        <span className="io-label">MIDI export</span>
+                        <div className="io-buttons">
+                            <button className="control-button" aria-label="Export progression to MIDI" onClick={handleExportMidi} title="Export Progression (MIDI)">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M18 8H6c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-2 5h-2v-2h2v2zm-4-2H8v-1h4v1zm-2 2H8v-1h2v1zm6-1h-2v-1h2v1zM6 9.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5-1.5-.67-1.5-1.5.67-1.5 1.5-1.5zm12 0c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5-1.5-.67-1.5-1.5.67-1.5 1.5-1.5z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </CollapsibleSection>
 
             <CollapsibleSection title="Playback & Tempo" defaultOpen={true}>
                 <div className="playback-controls-container">
@@ -481,10 +682,10 @@ const Composer = ({ screenWidth, screenHeight }) => {
                         onLoopToggle={handleLoopToggle}
                     />
                     <div className="secondary-controls">
-                        <button className="control-button" aria-label="Undo last action" onClick={handleUndo} disabled={progressionHistory.length === 0}>
+                        <button className="control-button" aria-label="Undo last action" onClick={handleUndo} disabled={progressionHistory.length === 0} title="Undo">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
                         </button>
-                        <button className="control-button clear-button" aria-label="Clear Progression" onClick={handleClearProgression}>
+                        <button className="control-button clear-button" aria-label="Clear Progression" onClick={handleClearProgression} title="Clear All Chords">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                         </button>
                         <button className="control-button lucky-button" aria-label="I feel lucky" onClick={handleFeelLucky} title="Generate Random Progression">
@@ -527,7 +728,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 />
             </CollapsibleSection>
 
-            <CollapsibleSection title="Synthesizer & Effects" defaultOpen={true}>
+            <CollapsibleSection title="Synthesizer & Effects" defaultOpen={false}>
                 <GraphicalEnvelopeEditor 
                     masterGain={masterGain}
                     onMasterGainChange={setMasterGain}
@@ -543,7 +744,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     onArpeggiatorTimingChange={setArpeggiatorTiming}
                     arpeggiatorRepeats={arpeggiatorRepeats}
                     onArpeggiatorRepeatsChange={setArpeggiatorRepeats}
-                    // Pass all synth settings down
                     rhodesSettings={rhodesSettings} onRhodesSettingsChange={setRhodesSettings}
                     moogLeadSettings={moogLeadSettings} onMoogLeadSettingsChange={setMoogLeadSettings}
                     moogBassSettings={moogBassSettings} onMoogBassSettingsChange={setMoogBassSettings}

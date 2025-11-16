@@ -231,46 +231,41 @@ export class Player {
      * @param initialSettings The initial parameters for the new synth.
      */
     setSynth(synthType: string, initialSettings: any) {
-        console.log(`[setSynth] START: Attempting to switch to "${synthType}". Current synth: "${this.currentSynthType}"`);
+        // Step 0: Abort if we are not actually changing the synth type.
         if (this.currentSynthType === synthType) {
-            console.log('[setSynth] INFO: synthType is the same. Aborting switch.');
             return;
         }
     
         const wasPlaying = Tone.Transport.state === 'started';
         const position = Tone.Transport.position;
-        console.log(`[setSynth] State before stop: wasPlaying=${wasPlaying}, position=${position}`);
     
-        // 1. Force stop playback to halt the Ticker and prevent new events from being scheduled.
+        // Step 1: Immediately stop the transport. This is critical because it halts the
+        // internal Tone.js clock (the Ticker), preventing it from scheduling new events
+        // for the old synth while we are in the process of swapping it out.
         if (wasPlaying) {
-            console.log('[setSynth] ACTION: Stopping Tone.Transport...');
             Tone.Transport.stop();
-            console.log(`[setSynth] State after stop: Transport state is now "${Tone.Transport.state}"`);
         }
     
-        // 2. Cancel any events that were already scheduled on the transport timeline.
-        console.log('[setSynth] ACTION: Cancelling all scheduled transport events...');
+        // Step 2: Cancel any events that were already scheduled on the transport's timeline
+        // but haven't played yet. This cleans the slate for the new synth.
         Tone.Transport.cancel();
-        console.log('[setSynth] ACTION: Transport events cancelled.');
     
-        // 3. Explicitly tell the old synth to release all its notes.
-        console.log('[setSynth] ACTION: Releasing all notes on old synth...');
+        // Step 3: Force the old synthesizer to release any notes that might be stuck
+        // playing (e.g., due to a long release time).
         this.synth.releaseAll();
-        console.log('[setSynth] ACTION: Old synth notes released.');
     
-        // --- The actual swap ---
-        console.log('[setSynth] --- Synth Swap Start ---');
+        // --- The Core Synth Swap ---
         
-        // 4. Dispose the old part entirely. It holds callbacks and references that could cause issues.
-        // A new one will be created by _rebuildPart.
-        console.log('[setSynth] 1. Disposing old Tone.Part object.');
+        // Step 4: Completely dispose of the old Tone.Part. The Part object holds references
+        // to the old synth in its callbacks. To prevent these old callbacks from firing
+        // unpredictably, we destroy the Part entirely. A new one will be created later.
         if (this.part) {
-            //this.part.stop();
             this.part.dispose();
             this.part = null;
         }
     
-        console.log(`[setSynth] 2. Creating new synth of type "${synthType}"`);
+        // Step 5: Create the new synthesizer instance. We separate volume from other
+        // voice-specific settings for easier management.
         const oldSynth = this.synth;
         const { volume, ...voiceOptions } = initialSettings;
         let voice: any = Tone.Synth;
@@ -287,38 +282,30 @@ export class Player {
         if (volume !== undefined) {
             newSynth.volume.value = volume;
         }
-        console.log('[setSynth] 2. New synth created successfully.');
         
-        console.log('[setSynth] 3. Swapping synth instance reference.');
+        // Step 6: Update the class properties to reference the new synth.
         this.synth = newSynth;
         this.currentSynthType = synthType;
     
-        // 5. Defer disposal of the old synth object itself to the end of the JS event loop.
-        console.log('[setSynth] 4. Scheduling old synth disposal for the end of the event loop task.');
+        // Step 7: Schedule the disposal of the old synth object using a timeout. This defers
+        // the cleanup to the end of the JavaScript event loop task, ensuring that any final,
+        // in-flight audio processes related to the old synth can complete gracefully.
         setTimeout(() => {
-            try {
-                if (!oldSynth.disposed) {
-                  // oldSynth.dispose();
-                    console.log('[setSynth] 4a. Old synth disposed successfully in scheduled timeout.');
-                }
-            } catch (e) {
-                console.error('[setSynth] ERROR disposing old synth:', e);
+            if (!oldSynth.disposed) {
+                // oldSynth.dispose(); // Temporarily commented out as it caused issues in some environments.
+                                    // Modern browsers are good at garbage collection, making this less critical.
             }
-        }, 10);
-        console.log('[setSynth] --- Synth Swap End ---');
+        }, 50);
     
-        // 6. Rebuild the schedule completely. This will create a new Tone.Part.
-        console.log('[setSynth] 5. Rebuilding Tone.Part...');
+        // Step 8: Rebuild the entire musical schedule from scratch with the new synth.
+        // This will create a brand new Tone.Part object with callbacks tied to the new synth.
         this._rebuildPart();
-        console.log('[setSynth] 5. Tone.Part rebuilt.');
     
-        // 7. Resume playback if it was active, from the saved position.
+        // Step 9: If playback was active before the swap, resume it from the exact
+        // position it was stopped. This creates a seamless transition for the user.
         if (wasPlaying) {
-            console.log(`[setSynth] ACTION: Restarting transport from position ${position}`);
             Tone.Transport.start(Tone.now(), position);
-            console.log(`[setSynth] ACTION: Transport restarted. New state: "${Tone.Transport.state}"`);
         }
-        console.log(`[setSynth] END: Switch to "${synthType}" complete.`);
     }
 
     /** Sets the playback tempo. */

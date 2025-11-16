@@ -12,7 +12,8 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tone": "^15.1.22",
-    "tonal": "4.10.0"
+    "tonal": "4.10.0",
+    "@tonejs/midi": "2.0.28"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
