@@ -52,6 +52,17 @@
     text-align: center;
 }
 
+.modal-context-display {
+    text-align: center;
+    color: #a0a0a0;
+    font-size: 0.9rem;
+}
+.modal-context-display strong {
+    color: #fff;
+    font-weight: 700;
+}
+
+
 .current-selection-display {
     margin-top: 0.5rem;
     color: #a0a0a0;

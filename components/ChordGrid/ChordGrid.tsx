@@ -22,8 +22,6 @@ interface ChordGridProps {
     onChordNotesUpdate: (id: string, newNotes: string[]) => void;
     musicalKey: string;
     musicalMode: string;
-    screenWidth: number;
-    screenHeight: number;
 }
 
 /**
@@ -45,7 +43,6 @@ const ChordGrid: React.FC<ChordGridProps> = ({
     onChordNotesUpdate,
     musicalKey,
     musicalMode,
-    screenWidth,
 }) => {
     const [draggedChordId, setDraggedChordId] = useState(null);
     const [dragOverChordId, setDragOverChordId] = useState(null);
@@ -61,7 +58,7 @@ const ChordGrid: React.FC<ChordGridProps> = ({
         // Use a timeout to allow the browser to generate the drag preview
         // before applying the 'is-dragging' class to the original element.
         setTimeout(() => {
-            (e.currentTarget.parentNode).classList.add('is-dragging-wrapper');
+            (e.currentTarget.parentNode.parentNode).classList.add('is-dragging-wrapper');
         }, 0);
     };
 
@@ -128,58 +125,44 @@ const ChordGrid: React.FC<ChordGridProps> = ({
        cleanupDragState();
     };
 
-    /**
-     * Determines the grid layout style based on the screen width.
-     * @returns {React.CSSProperties} A style object for the grid container.
-     */
-    const getGridStyle = (): React.CSSProperties => {
-        if (screenWidth <= 768) {
-            return { gridTemplateColumns: '1fr' };
-        }
-        if (screenWidth < 992) {
-            return { gridTemplateColumns: 'repeat(3, 1fr)' };
-        }
-        return { gridTemplateColumns: 'repeat(4, 1fr)' };
-    };
-
 
     return (
-        <div className="chord-grid" style={getGridStyle()}>
+        <div className={`chord-grid ${isNoteVisualizerVisible ? 'visualizer-mode-active' : ''}`}>
             {progression.map(chord => (
                 <div 
                     key={chord.id}
-                    className={`chord-grid-item ${dragOverChordId === chord.id && draggedChordId !== chord.id ? 'drag-over-wrapper' : ''} ${isNoteVisualizerVisible ? 'visualizer-active' : ''}`}
+                    className={`chord-grid-item ${dragOverChordId === chord.id && draggedChordId !== chord.id ? 'drag-over-wrapper' : ''}`}
                     onDragOver={(e) => handleDragOver(e, chord.id)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, chord.id)}
                 >
-                    <ChordCard 
-                        chordId={chord.id}
-                        notes={chord.notes}
-                        duration={chord.duration}
-                        onEdit={() => onEditChord(chord)}
-                        onSelect={onSelectChord}
-                        isSelected={selectedChordId === chord.id}
-                        isPlaying={currentlyPlayingChordId === chord.id}
-                        onRemove={onRemoveChord}
-                        onNextInvert={() => onNextInvertChord(chord.id)}
-                        onPreviousInvert={() => onPreviousInvertChord(chord.id)}
-                        onPermute={() => onPermuteChord(chord.id)}
-                        // Pass down drag and drop handlers
-                        onDragStart={(e) => handleDragStart(e, chord.id)}
-                        onDragEnd={handleDragEnd}
-                        onDragOver={(e) => handleDragOver(e, chord.id)}
-                        onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, chord.id)}
-                        isDragOver={dragOverChordId === chord.id && draggedChordId !== chord.id}
-                    />
-                    {isNoteVisualizerVisible && (
-                        <NoteVisualizer 
+                    <div className="chord-card-container">
+                        <ChordCard 
+                            chordId={chord.id}
                             notes={chord.notes}
-                            onNotesChange={(newNotes) => onChordNotesUpdate(chord.id, newNotes)}
-                            musicalKey={musicalKey}
-                            musicalMode={musicalMode}
+                            duration={chord.duration}
+                            onEdit={() => onEditChord(chord)}
+                            onSelect={onSelectChord}
+                            isSelected={selectedChordId === chord.id}
+                            isPlaying={currentlyPlayingChordId === chord.id}
+                            onRemove={onRemoveChord}
+                            onNextInvert={() => onNextInvertChord(chord.id)}
+                            onPreviousInvert={() => onPreviousInvertChord(chord.id)}
+                            onPermute={() => onPermuteChord(chord.id)}
+                            onDragStart={(e) => handleDragStart(e, chord.id)}
+                            onDragEnd={handleDragEnd}
                         />
+                    </div>
+                    {isNoteVisualizerVisible && (
+                        <div className="note-visualizer-container">
+                            <NoteVisualizer
+                                notes={chord.notes}
+                                musicalKey={musicalKey}
+                                musicalMode={musicalMode}
+                                onChordNotesUpdate={onChordNotesUpdate}
+                                chordId={chord.id}
+                            />
+                        </div>
                     )}
                 </div>
             ))}

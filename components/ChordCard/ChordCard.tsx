@@ -1,4 +1,3 @@
-
 import React from 'react';
 import './ChordCard.css';
 import { getAbbreviatedNameFromNotes } from '../../theory/chords.js';
@@ -19,11 +18,7 @@ interface ChordCardProps {
     onPreviousInvert: () => void;
     onPermute: () => void;
     onDragStart: (e: React.DragEvent) => void;
-    onDragOver: (e: React.DragEvent) => void;
-    onDragLeave: (e: React.DragEvent) => void;
-    onDrop: (e: React.DragEvent) => void;
     onDragEnd: (e: React.DragEvent) => void;
-    isDragOver: boolean;
 }
 
 /**
@@ -44,11 +39,7 @@ const ChordCard: React.FC<ChordCardProps> = ({
     onPreviousInvert,
     onPermute,
     onDragStart,
-    onDragOver,
-    onDragLeave,
-    onDrop,
     onDragEnd,
-    isDragOver
 }) => {
     
     const isRest = notes.length === 0;
@@ -58,7 +49,6 @@ const ChordCard: React.FC<ChordCardProps> = ({
         'chord-card',
         isPlaying ? 'playing' : '',
         isSelected ? 'selected' : '',
-        isDragOver ? 'drag-over' : '',
         isRest ? 'is-rest' : ''
     ].filter(Boolean).join(' ');
     
@@ -70,9 +60,6 @@ const ChordCard: React.FC<ChordCardProps> = ({
             onClick={() => onSelect(chordId)}
             draggable="true"
             onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
             onDragEnd={onDragEnd}
         >
             <div className="chord-card-buttons-top">
@@ -131,7 +118,6 @@ const ChordCard: React.FC<ChordCardProps> = ({
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/></svg>
                 </button>
             </div>
-            
         </div>
     );
 };

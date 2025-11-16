@@ -1,26 +1,60 @@
 
 
+/* --- Default Layout: A responsive grid of chord cards --- */
 .chord-grid {
     display: grid;
-    /* grid-template-columns is now set via inline styles from the component */
+    /* Creates a single-column layout where each chord takes a full row. */
+    grid-template-columns: 1fr;
     gap: 1rem;
     background-color: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
-    align-items: start; /* Align items to the top */
+    align-items: start; /* Prevents items from stretching to match the tallest item. */
 }
 
 .chord-grid-item {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    position: relative;
+    position: relative; /* Needed for the ::before pseudo-element used for the drop indicator. */
+    min-width: 0; /* A critical fix for grid/flex items to prevent them from overflowing if their content is too wide. */
 }
 
+
+/* --- VISUALIZER MODE --- */
+/* The entire layout of the grid changes when the note visualizer is active. */
+/* It switches from a responsive grid to a vertical flex container (a list). */
+.chord-grid.visualizer-mode-active {
+    
+    flex-direction: column;
+    background-color: transparent;
+    border-radius: 0;
+    width: 100%;
+      align-items: stretch;
+}
+
+.chord-grid.visualizer-mode-active .chord-grid-item {
+    flex-direction: row; /* Chord card and visualizer are side-by-side. */
+    gap: 1rem;
+    align-items: stretch; /* FIX: Changed from invalid 'fill' to 'stretch'. Makes items fill the container's height. */
+}
+
+.chord-grid.visualizer-mode-active .chord-card-container {
+    flex: 0 0 80px; /* The chord card takes a fixed, narrow width. */
+    display: flex;
+}
+
+.chord-grid.visualizer-mode-active .note-visualizer-container {
+    flex: 1 0; /* The visualizer takes up all remaining horizontal space. */
+    min-width: 0; /* Prevents the visualizer from overflowing its container. */
+    display: flex;
+}
+
+
+/* --- DRAG & DROP STYLES --- */
 .chord-grid-item.is-dragging-wrapper {
-    opacity: 0.4;
+    opacity: 0.4; /* The original item fades out while being dragged. */
 }
 
-/* Drop target indicator */
+/* A pseudo-element creates a dashed border around potential drop targets. */
 .chord-grid-item.drag-over-wrapper::before {
     content: '';
     position: absolute;
@@ -30,34 +64,40 @@
     right: -5px;
     border: 2px dashed cyan;
     border-radius: 12px;
-    pointer-events: none;
+    pointer-events: none; /* Allows mouse events to pass through to the element below. */
     animation: pulse 1.5s infinite;
+}
+
+
+/* --- Add Chord Button --- */
+.add-card {
+    border: 2px dashed #555;
+    background-color: transparent;
+    color: #888;
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 120px;
+}
+
+.add-card:hover {
+    border-color: #ff8a00;
+    color: #ff8a00;
+    background-color: rgba(255, 138, 0, 0.1);
+}
+
+.add-card span {
+    margin-top: 0.5rem;
+    font-weight: 700;
 }
 
 @keyframes pulse {
     0% { opacity: 1; }
     50% { opacity: 0.5; }
     100% { opacity: 1; }
-}
-
-/* New style for when the visualizer is active */
-@media (max-width: 768px) {
-    /* Rely on the parent .chord-grid's `gap` property for consistent vertical spacing. */
-
-    .chord-grid-item.visualizer-active {
-        flex-direction: row;
-        height: 120px; /* Give a fixed height to contain children */
-        align-items: stretch;
-        gap: 0.5rem; /* Add a small gap between the card and visualizer */
-    }
-
-    .chord-grid-item.visualizer-active > .chord-card {
-        flex: 0 0 20%; /* Give more space to visualizer */
-        max-width: 80px; /* Prevent the card from becoming too wide */
-    }
-
-    .chord-grid-item.visualizer-active > .note-visualizer {
-        flex: 1 1 80%; /* Allow it to take up the remaining ~80% space */
-        min-width: 0;   /* CRITICAL: Allows flex item to shrink and scroll internally */
-    }
 }

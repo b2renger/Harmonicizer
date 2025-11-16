@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import TransportControls from '../../components/TransportControls/TransportControls.tsx';
 import ChordGrid from '../../components/ChordGrid/ChordGrid.tsx';
@@ -513,8 +514,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     onChordNotesUpdate={handleChordNotesUpdate}
                     musicalKey={musicalKey}
                     musicalMode={musicalMode}
-                    screenWidth={screenWidth}
-                    screenHeight={screenHeight}
                 />
             </CollapsibleSection>
             

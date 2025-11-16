@@ -1,120 +1,165 @@
+/* --- Note Visualizer Styles --- */
+
 .note-visualizer {
+    /* --- Layout & Box Model --- */
     display: flex;
-    flex-direction: column; /* Render top-to-bottom */
-    width: 100%;
+    flex-direction: row; /* Arranges note columns horizontally. */
+    width: 100%; /* CRITICAL FIX: Constrains the component to its parent's width, preventing overflow. */
+    height: 100%;
+    min-height: 100px; /* Prevents the component from collapsing. */
     background-color: #111;
-    border-radius: 6px;
-    margin-top: 0.5rem;
-    padding: 0.25rem;
     border: 1px solid #333;
-    animation: growVertical 0.3s ease-out;
-    user-select: none; /* Prevent text selection during drag */
-    position: relative;
-    max-height: 300px; /* Constrain height */
-    overflow-y: auto; /* Enable vertical scroll when content overflows */
-    overflow-x: hidden;
+    border-radius: 8px;
+    box-sizing: border-box; /* Ensures border and padding don't cause overflow. */
+    
+    /* --- Overflow & Scrolling --- */
+    overflow-x: auto; /* Enables horizontal scrolling, necessary for the drag logic. */
+    overflow-y: hidden; /* Disables vertical scrolling. */
+    
+    /* --- User Interaction & Animation --- */
+    user-select: none; /* Prevents text selection during drag-to-scroll. */
+    animation: growHorizontal 0.3s ease-in-out;
 }
 
+/* Adds a grabbing hand cursor when the user is actively dragging to scroll. */
+.note-visualizer.is-dragging {
+    cursor: grabbing;
+}
+
+/* Custom scrollbar for a more integrated look in WebKit browsers. */
+.note-visualizer::-webkit-scrollbar {
+    height: 8px;
+}
+.note-visualizer::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 4px;
+}
+.note-visualizer::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 4px;
+}
+.note-visualizer::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Makes note columns clickable in interactive mode. */
 .note-visualizer.interactive .note-column {
     cursor: pointer;
 }
 
 .note-column {
-    flex-grow: 1;
-    font-size: 0.75rem;
-    color: #888;
-    padding: 2px 4px;
-    border-radius: 3px;
-    transition: all 0.2s ease;
-    position: relative;
-    background-color: #222; /* Default background for natural notes */
+    /* --- Sizing --- */
+    /* A fixed width with flex-shrink: 0 is the key to the horizontal scrolling layout. */
+    width: 18px;
+    flex-shrink: 0;
+    height: 100%; /* Fill the container's height. */
+    box-sizing: border-box;
+
+    /* --- Layout & Content Alignment --- */
     display: flex;
+    flex-direction: column; 
     align-items: center;
-    justify-content: space-between;
+    justify-content: space-between; /* Distributes content vertically. */
+
+    /* --- Styling & Theming --- */
+    font-size: 0.6rem;
+    color: #888;
+    padding: 8px 1px;
+    transition: all 0.2s ease;
+    position: relative; /* For the active state's ::before pseudo-element. */
+    background-color: #222; /* Default for natural notes. */
+    border-right: 1px solid #444;
 }
 
+.note-column:last-child {
+    border-right: none;
+}
+
+/* --- Theming based on musical context --- */
 .note-column.is-in-scale {
     background-color: #2c2c2c;
     color: #aaa;
 }
-
 .note-column.is-accidental {
     background-color: #1a1a1a;
     color: #777;
 }
-
 .note-column.is-accidental.is-in-scale {
     background-color: #252525;
 }
 
-.note-column.active {
-    background: linear-gradient(90deg, #ff8a00, #e52e71);
+/* A pseudo-element creates the colored bar for active notes, sitting behind the text. */
+.note-column.active::before {
+    content: '';
+    position: absolute;
+    top: 5%;
+    bottom: 5%;
+    left: 10%;
+    right: 10%;
+    background-color: #4facfe;
+    border-radius: 4px;
+    opacity: 0.8;
+    z-index: 0;
+}
+
+/* Text inside an active column must have a higher z-index to appear above the bar. */
+.note-column.active .note-name-octave,
+.note-column.active .note-root-indicator,
+.note-column.active .scale-degree-roman {
+    color: #fff;
+    font-weight: 700;
+    z-index: 1;
+}
+
+/* The root note of the chord has a distinct background color. */
+.note-column.is-root {
+    background: #4facfe;
+    color: #000;
+}
+.note-column.is-root::before {
+    display: none; /* Hide the standard active bar if it's the root. */
+}
+.note-column.is-root .note-root-indicator,
+.note-column.is-root .scale-degree-roman,
+.note-column.is-root .note-name-octave {
     color: #000;
     font-weight: 700;
 }
 
-.note-column.is-root {
-    background: #4facfe;
-    color: #000;
-    box-shadow: 0 0 8px rgba(79, 172, 254, 0.7);
-}
-
+/* A glowing animation highlights notes that are in the scale but not in the chord. */
 .note-column.suggestion-highlight {
     animation: pulse-glow 2.5s infinite ease-in-out;
 }
 
-
+/* --- Text element styling --- */
 .scale-degree-roman {
-    font-size: 0.7rem;
-    color: #888;
+    font-size: 0.6rem;
     font-weight: normal;
-    min-width: 1.5em; /* Ensure alignment */
-    text-align: left;
-}
-
-.note-name-octave {
-    font-weight: bold;
-    flex-grow: 1;
     text-align: center;
 }
-
+.note-name-octave {
+    font-weight: bold;
+    text-align: center;
+    word-break: break-all; /* Prevents overflow if somehow needed. */
+}
 .note-root-indicator {
     font-size: 0.7rem;
     font-weight: bold;
-    min-width: 1.5em; /* Ensure alignment */
-    text-align: right;
-    color: #000; /* Will only be visible on active/root notes */
+    text-align: center;
+    color: transparent; /* Hidden by default. */
 }
-
-.note-column.active .scale-degree-roman,
-.note-column.is-root .scale-degree-roman {
+.note-column.is-root .note-root-indicator {
     color: #000;
-    opacity: 0.7;
+}
+.note-column.active .note-root-indicator {
+    color: #fff;
 }
 
+/* --- Animations --- */
 @keyframes pulse-glow {
-    0% {
-        box-shadow: 0 0 2px rgba(79, 172, 254, 0.3);
-    }
-    50% {
-        box-shadow: 0 0 8px rgba(79, 172, 254, 0.7);
-    }
-    100% {
-        box-shadow: 0 0 2px rgba(79, 172, 254, 0.3);
-    }
-}
-
-@keyframes growVertical {
-    from {
-        opacity: 0;
-        transform: scaleY(0);
-        transform-origin: top;
-    }
-    to {
-        opacity: 1;
-        transform: scaleY(1);
-        transform-origin: top;
-    }
+    0% { box-shadow: 0 0 2px rgba(79, 172, 254, 0.3); }
+    50% { box-shadow: 0 0 8px rgba(79, 172, 254, 0.7); }
+    100% { box-shadow: 0 0 2px rgba(79, 172, 254, 0.3); }
 }
 
 @keyframes growHorizontal {
@@ -127,67 +172,5 @@
         opacity: 1;
         transform: scaleX(1);
         transform-origin: left;
-    }
-}
-
-/* Updated media query for small screens (portrait and landscape) */
-@media (max-width: 768px) {
-    .note-visualizer {
-        flex-direction: row; /* Horizontal layout for notes */
-        margin-top: 0;
-        padding: 0; /* Remove internal padding for more space */
-        animation-name: growHorizontal; /* Apply horizontal grow animation */
-        gap: 0; /* Remove gap between note columns */
-        align-items: stretch; /* Ensure note-columns fill available height */
-        overflow-x: auto; /* Enable horizontal scrolling */
-        overflow-y: hidden; /* Disable vertical scrolling */
-        white-space: nowrap; /* Prevent note columns from wrapping */
-        max-height: none; /* Unset max-height for horizontal layout */
-        position: relative; /* For scroll affordance pseudo-element */
-    }
-
-    /* Scroll affordance gradient on mobile */
-    .note-visualizer::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        width: 30px;
-        background: linear-gradient(to left, #111, transparent);
-        pointer-events: none; /* So it doesn't block scrolling/clicks */
-        border-radius: 0 6px 6px 0; /* Match parent border-radius */
-    }
-
-    .note-column {
-        padding: 4px 2px;
-        flex-direction: column-reverse; /* Put R at top */
-        font-size: 0.65rem; /* Slightly smaller font */
-        flex-shrink: 0; /* Important for horizontal scrolling */
-        width: 28px; /* Narrower width to fit more notes */
-        height: 100%; /* Fill parent height */
-        justify-content: space-around; /* Distribute content vertically */
-        border-right: 1px solid #444; /* Add separator between notes */
-        border-radius: 0; /* No individual border radius */
-    }
-
-    .note-column:last-child {
-        border-right: none; /* No border on the last note */
-    }
-    
-    .note-name-octave {
-        writing-mode: vertical-rl;
-        text-orientation: mixed;
-        flex-grow: unset; /* Don't grow, let fixed width handle it */
-    }
-
-    .scale-degree-roman {
-        min-width: unset; /* Remove min-width for stacking */
-        text-align: center;
-    }
-
-    .note-root-indicator {
-        min-width: unset; /* Remove min-width for stacking */
-        text-align: center;
     }
 }

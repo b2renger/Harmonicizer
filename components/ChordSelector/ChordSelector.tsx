@@ -144,6 +144,7 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
     if (!isOpen) return null;
 
     const displaySelection = getAbbreviatedNameFromNotes(selectedNotes);
+    const displayKeyMode = `${musicalKey} ${musicalMode.charAt(0).toUpperCase() + musicalMode.slice(1)}`;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -153,6 +154,9 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
                         <button onClick={onClose} className="cancel-button header-action-button">Cancel</button>
                         <h2>{chord?.notes ? 'Edit Chord' : 'Add Chord'}</h2>
                         <button onClick={handleSave} className="save-button header-action-button">Save</button>
+                    </div>
+                     <div className="modal-context-display">
+                        Editing in: <strong>{displayKeyMode}</strong>
                     </div>
                     <div className="current-selection-display">
                         {displaySelection}

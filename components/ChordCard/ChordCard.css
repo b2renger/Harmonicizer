@@ -1,33 +1,32 @@
 .chord-card {
-    background-color: #2a2a2a;
-    border-radius: 8px;
-    padding: 1rem;
-    text-align: center;
-    cursor: pointer; /* Changed to pointer for preview action */
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
-    border: 1px solid transparent;
+    /* --- Main Layout & Box Model --- */
     display: flex;
     flex-direction: column;
-    justify-content: space-between; /* Pushes top buttons up and bottom buttons down */
+    /* Pushes the main content to the center, and the top/bottom button sections to the edges. */
+    justify-content: space-between; 
     align-items: center;
+    width: 100%;
     min-height: 120px;
-    position: relative;
-    user-select: none; /* Prevent text selection during drag */
-    flex-grow: 1; /* Allow card to fill space in its container */
-}
+    padding: 2px;
+    box-sizing: border-box; /* Ensures padding is included in width calculation. */
 
-.chord-card.is-rest {
-    cursor: grab; /* Rests can't be previewed, so revert to grab */
-}
+    /* --- Styling --- */
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    border: 1px solid #434040;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 
-.chord-card:active:not(.is-rest) {
-    cursor: pointer;
+    /* --- Interaction & Positioning --- */
+    cursor: grab;
+    user-select: none; /* Prevents text selection during drag operations. */
+    /* Establishes a positioning context for the absolutely positioned top buttons. */
+    position: relative; 
+    min-width: 0; /* Fix for nested flexbox items that might overflow. */
 }
 
 .chord-card:active {
     cursor: grabbing;
 }
-
 
 .chord-card:hover {
     transform: translateY(-5px);
@@ -35,52 +34,42 @@
     border-color: #e52e71;
 }
 
+/* --- State-based Variants --- */
 .chord-card.is-rest {
     background-color: #1e1e1e;
     border-style: dashed;
     border-color: #444;
 }
 
+.chord-card.playing,
+.chord-card.selected {
+    /* Apply hover-like transforms when selected or playing for emphasis. */
+    transform: translateY(-5px) scale(1.01);
+}
+
 .chord-card.playing {
     border-color: #ff8a00;
     box-shadow: 0 0 20px rgba(255, 138, 0, 0.4);
-    transform: translateY(-5px) scale(1.02);
 }
 
 .chord-card.selected {
     border-color: #4facfe;
     box-shadow: 0 0 20px rgba(79, 172, 254, 0.5);
-    transform: translateY(-5px) scale(1.02);
 }
 
-
-/* Styles for the card currently being dragged */
-.chord-card.is-dragging {
-    opacity: 0.4;
-    border-style: dashed;
-    background: #1e1e1e;
-    transform: scale(0.95);
-}
-
-/* Style for a potential drop target */
-.chord-card.drag-over {
-    border-color: cyan;
-    transform: scale(1.03);
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
-}
-
+/* --- Internal Content Sections --- */
 .chord-card-main-content {
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    flex-grow: 1; /* Allows this to take up the space in the middle */
+    flex-grow: 1; /* Allows this central section to take up all available vertical space. */
 }
 
 .chord-name-wrapper {
     display: flex;
     justify-content: center;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
 }
 
 .chord-name {
@@ -93,20 +82,25 @@
     color: #a0a0a0;
 }
 
+/* --- Action Buttons --- */
+
+/* Top buttons are absolutely positioned within the card. */
 .chord-card-buttons-top {
     position: absolute;
     top: 8px;
     left: 8px;
     right: 8px;
     display: flex;
-    justify-content: space-between; /* Pushes children to opposite ends */
+    justify-content: space-between;
     z-index: 10;
-    pointer-events: none; /* Allow clicks to pass through to the card itself */
+    /* A clever trick: the container is transparent to clicks, so clicks "pass through" to the card. */
+    pointer-events: none; 
 }
 
+/* Individual buttons re-enable pointer events so they can be clicked. */
 .remove-chord-button,
 .edit-chord-button {
-    pointer-events: auto; /* Re-enable pointer events for buttons */
+    pointer-events: auto; 
     background-color: rgba(0, 0, 0, 0.5);
     border: none;
     color: #fff;
@@ -136,6 +130,7 @@
     height: 16px;
 }
 
+/* Bottom buttons for voicing are in the normal document flow. */
 .chord-card-buttons-bottom {
     display: flex;
     gap: 1rem;
@@ -167,28 +162,4 @@
 .voicing-button:disabled {
     opacity: 0.3;
     cursor: not-allowed;
-}
-
-
-.add-card {
-    border: 2px dashed #555;
-    background-color: transparent;
-    color: #888;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    transition: border-color 0.2s ease, color 0.2s ease;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 1rem;
-    min-height: 25px;
-    cursor: pointer;
-    padding: 1.5rem 1rem;
-}
-
-.add-card:hover {
-    border-color: #ff8a00;
-    color: #ff8a00;
 }
