@@ -29,16 +29,18 @@
     border-radius: 0;
     width: 100%;
       align-items: stretch;
+      
 }
 
 .chord-grid.visualizer-mode-active .chord-grid-item {
     flex-direction: row; /* Chord card and visualizer are side-by-side. */
-    gap: 1rem;
+    gap: 0.5rem;
     align-items: stretch; /* FIX: Changed from invalid 'fill' to 'stretch'. Makes items fill the container's height. */
 }
 
 .chord-grid.visualizer-mode-active .chord-card-container {
-    flex: 0 0 80px; /* The chord card takes a fixed, narrow width. */
+    flex-basis: 80px; /* Give the chord card a specific width in this mode */
+    flex-shrink: 0;   /* Prevent it from shrinking if space is tight */
     display: flex;
 }
 
@@ -46,6 +48,57 @@
     flex: 1 0; /* The visualizer takes up all remaining horizontal space. */
     min-width: 0; /* Prevents the visualizer from overflowing its container. */
     display: flex;
+}
+
+/* --- VISUALIZER MODE: ChordCard Content Overrides --- */
+
+/* Override ChordCard defaults to allow it to shrink and adjust padding */
+.chord-grid.visualizer-mode-active .chord-card {
+    min-width: 0;
+    padding: 6px 2px;
+}
+
+/* Adjust text sizes for the new layout */
+.chord-grid.visualizer-mode-active .chord-name {
+    font-size: 0.9rem;
+    word-break: break-all; /* Prevent overflow with long chord names */
+}
+
+.chord-grid.visualizer-mode-active .chord-duration {
+    font-size: 0.75rem;
+}
+
+/* --- VISUALIZER MODE: Button Overrides --- */
+.chord-grid.visualizer-mode-active .chord-card-buttons-top {
+    left: 4px;
+    right: 4px;
+    top: 6px;
+}
+.chord-grid.visualizer-mode-active .remove-chord-button,
+.chord-grid.visualizer-mode-active .edit-chord-button {
+    width: 26px;
+    height: 26px;
+}
+
+.chord-grid.visualizer-mode-active .remove-chord-button svg,
+.chord-grid.visualizer-mode-active .edit-chord-button svg {
+    width: 14px;
+    height: 14px;
+}
+
+.chord-grid.visualizer-mode-active .chord-card-buttons-bottom {
+    gap: 0.25rem; /* 4px */
+    padding-top: 0.25rem;
+}
+
+.chord-grid.visualizer-mode-active .voicing-button {
+    width: 24px;
+    height: 24px;
+}
+
+.chord-grid.visualizer-mode-active .voicing-button svg {
+    width: 14px;
+    height: 14px;
 }
 
 

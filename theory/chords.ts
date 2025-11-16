@@ -1,5 +1,5 @@
 
-import { Chord, Note } from 'tonal';
+import { Chord, Note, Interval } from 'tonal';
 
 export const rootNotes = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
@@ -18,6 +18,43 @@ export const modes = [
     'mixolydian',
     'locrian',
 ];
+
+const MIN_MIDI_RANGE = 48; // C3
+const MAX_MIDI_RANGE = 84; // C6
+
+/**
+ * Adjusts a chord's octave to fit it within a defined MIDI range (C3-C6).
+ * This is done by shifting the entire chord up or down by octaves to keep the voicing intact.
+ * @param {string[]} notes - An array of notes.
+ * @returns {string[]} The notes transposed to be within the desired range.
+ */
+export const wrapNotesToRange = (notes: string[]): string[] => {
+    if (!notes || notes.length === 0) {
+        return [];
+    }
+
+    const midiNotes = notes.map(note => Note.midi(note)).filter((m): m is number => m !== null);
+    if (midiNotes.length === 0) {
+        return notes; // Return original if no valid midi notes
+    }
+
+    const avgMidi = midiNotes.reduce((sum, midi) => sum + midi, 0) / midiNotes.length;
+    const rangeCenter = (MIN_MIDI_RANGE + MAX_MIDI_RANGE) / 2;
+    const difference = avgMidi - rangeCenter;
+    const octaveShift = Math.round(difference / 12);
+
+    if (octaveShift === 0) {
+        return notes; // Already in range
+    }
+
+    const semitoneShift = -octaveShift * 12;
+    const interval = Interval.fromSemitones(semitoneShift);
+    
+    if (!interval) return notes; // Should not happen for multiples of 12, but a safe fallback
+
+    return notes.map(note => Note.transpose(note, interval));
+};
+
 
 /**
  * Detects the most likely chord from a set of notes, ensuring the result is valid.
@@ -164,6 +201,7 @@ export const buildAscendingVoicing = (bassNote, upperPitchClasses) => {
  * Calculates the next or previous inversion of a chord by manipulating the note array directly.
  * For standard chords, it performs a musically-aware inversion by moving to the next chord tone in the bass.
  * For non-standard chords, it falls back to a simple rotational inversion.
+ * The final result is wrapped to a C3-C6 range.
  * @param {string[]} notes - The array of notes in the current chord voicing (e.g., ['C4', 'E4', 'G4']).
  * @param {'up' | 'down'} direction - Whether to find the next inversion ('up') or the previous one ('down').
  * @returns {string[]} A new array of notes representing the inverted chord.
@@ -180,15 +218,17 @@ const getInversion = (notes, direction) => {
 
     // --- Fallback for non-standard chords (rotational inversion) ---
     if (!detectedName) {
+        let invertedNotes;
         if (direction === 'up') {
             const upperNotes = sortedNotes.slice(1);
             const newTopNote = Note.transpose(bassNote, 'P8'); // Move bass note up an octave
-            return newTopNote ? [...upperNotes, newTopNote] : notes;
+            invertedNotes = newTopNote ? [...upperNotes, newTopNote] : notes;
         } else { // 'down'
             const bottomNotes = sortedNotes.slice(0, -1);
             const newBottomNote = Note.transpose(topNote, '-P8'); // Move top note down an octave
-            return newBottomNote ? [newBottomNote, ...bottomNotes] : notes;
+            invertedNotes = newBottomNote ? [newBottomNote, ...bottomNotes] : notes;
         }
+        return wrapNotesToRange(invertedNotes);
     }
 
     // --- Standard Inversion Logic ---
@@ -236,7 +276,8 @@ const getInversion = (notes, direction) => {
     const upperPitchClasses = reorderedRootPcs.slice(1);
 
     // Build the final ascending voicing from the new calculated bass note.
-    return buildAscendingVoicing(newBassNote, upperPitchClasses);
+    const finalVoicing = buildAscendingVoicing(newBassNote, upperPitchClasses);
+    return wrapNotesToRange(finalVoicing);
 };
 
 /**
