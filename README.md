@@ -1,16 +1,14 @@
 
 TODO
-- make it work to be served from github pages  and used as a pwa
-- move order of each section in the main interface
 
-  -fix hotswappin synth
-	- prevent scrolling when manipulatng adsr (needs check on mobile)
+- fix not edittin mobile (need a long press to activate a note, maybe there is debounce time that could be shorten)
+- move order of each section in the main interface
+  - fix hotswappin synth
 	- add a tap delay synched to the bpm
 	- check synth control that are actually realtime
-
 - add a performance section to improvize melodies
 - export / import in json
-- record midi (with arpeggiator)
+- record midi (with arpeggiator, and performance ?)
 
 
 --

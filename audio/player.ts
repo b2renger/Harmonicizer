@@ -17,7 +17,7 @@ export class Player {
     synth: Tone.PolySynth;
     /** A callback function to notify the UI which chord is currently playing. */
     onTick: (id: string | null) => void;
-    /** The Tone.Part instance that schedules all musical events. */
+    /** The Tone.Part instance that schedules all musical events. It is created once and reused. */
     part: Tone.Part | null;
     /** Flag to determine if the arpeggiator is active. */
     isArpeggiatorActive: boolean;
@@ -91,81 +91,67 @@ export class Player {
     
     /**
      * Rebuilds the Tone.Part schedule from the current progression.
-     * This private method is the core of the scheduling logic and is called
-     * whenever the progression, synth, or arpeggiator settings change.
+     * This method reuses the same Tone.Part object to avoid race conditions,
+     * clearing old events and adding new ones.
      */
     _rebuildPart() {
-        // 1. Clean up the existing part to prevent memory leaks or duplicate events.
+        // If the part exists, clear its scheduled events.
         if (this.part) {
             this.part.clear();
-            this.part.dispose();
-            this.part = null;
         }
 
-        // 2. If the progression is empty, there's nothing to schedule.
+        // If the progression is empty, there's nothing more to do.
         if (this.progression.length === 0) {
             Tone.Transport.loopEnd = 0;
             this.onTick(null);
             return;
         }
 
-        // 3. Build an array of events for Tone.Part from the progression data.
         const allEvents: any[] = [];
         let accumulatedBeats = 0;
         const timeSignature = 4; // Assuming 4/4 time
 
         for (const chord of this.progression) {
-            // Calculate musical time in "Bar:Beat:Sixteenths" format.
             const bars = Math.floor(accumulatedBeats / timeSignature);
             const beats = accumulatedBeats % timeSignature;
             const eventStart = `${bars}:${beats}:0`;
             const chordDurationInBeats = chord.duration;
-            
             const notes = chord.notes;
 
-            // Handle rests (chords with no notes)
             if (notes.length === 0) {
                  allEvents.push({ time: eventStart, id: chord.id, noteDuration: chordDurationInBeats });
                 accumulatedBeats += chordDurationInBeats;
                 continue;
             }
 
-            // Handle Arpeggiator Logic
             if (this.isArpeggiatorActive) {
-                // Convert arpeggiator timing (e.g., '16n') to seconds, then to beats.
                 const arpeggioTimingAsSeconds = Tone.Time(this.arpeggiatorTiming).toSeconds();
                 const beatDurationInSeconds = 60 / Tone.Transport.bpm.value;
                 const arpeggioTimingInBeats = arpeggioTimingAsSeconds / beatDurationInSeconds;
                 
                 if (arpeggioTimingInBeats <= 0) {
                     accumulatedBeats += chordDurationInBeats;
-                    continue; // Avoid infinite loops if timing is invalid
+                    continue;
                 }
 
-                // Make notes slightly staccato to prevent them from blurring together.
                 const finalNoteDurationInSeconds = Math.max(arpeggioTimingAsSeconds * 0.8, 0.05);
                 const finalNoteDurationInBeats = finalNoteDurationInSeconds / beatDurationInSeconds;
                 
                 const chordStartBeats = accumulatedBeats;
                 const chordEndBeats = chordStartBeats + chordDurationInBeats;
-
                 const maxRepetitions = this.arpeggiatorRepeats * notes.length;
                 let notesPlayedInArpeggio = 0;
-
-                // Schedule individual notes for the duration of the chord.
                 let noteIndex = 0;
+
                 for (let currentTimeInBeats = chordStartBeats; currentTimeInBeats < chordEndBeats; currentTimeInBeats += arpeggioTimingInBeats) {
-                    if (notesPlayedInArpeggio >= maxRepetitions) {
-                        break;
-                    }
+                    if (notesPlayedInArpeggio >= maxRepetitions) break;
                     
                     const note = notes[noteIndex % notes.length];
                     const noteBars = Math.floor(currentTimeInBeats / timeSignature);
                     const noteBeatsInBar = currentTimeInBeats % timeSignature;
-                    const noteTimeNotation = `${noteBars}:${noteBeatsInBar}:0`;
-
+                    
                     allEvents.push({
-                        time: noteTimeNotation,
+                        time: `${noteBars}:${noteBeatsInBar}:0`,
                         note: note,
                         noteDuration: finalNoteDurationInBeats,
                         id: chord.id,
@@ -174,10 +160,8 @@ export class Player {
                     noteIndex++;
                     notesPlayedInArpeggio++;
                 }
-                
                 accumulatedBeats += chordDurationInBeats;
             } else {
-                // Schedule a regular block chord.
                 allEvents.push({
                     time: eventStart,
                     notes: notes,
@@ -188,96 +172,107 @@ export class Player {
             }
         }
 
-        // 4. Create the new Tone.Part instance with the generated events.
-        this.part = new Tone.Part((time, value) => {
-            // This callback is executed for each event when its time is reached.
-            if (typeof value.noteDuration !== 'number') return;
-            // Convert duration from beats to seconds based on the current tempo.
-            const durationInSeconds = (60 / Tone.Transport.bpm.value) * value.noteDuration;
+        // If the Part hasn't been created yet, create it now. This happens only once.
+        if (!this.part) {
+            this.part = new Tone.Part((time, value) => {
+                if (this.synth.disposed || typeof value.noteDuration !== 'number') return;
+                
+                const durationInSeconds = (60 / Tone.Transport.bpm.value) * value.noteDuration;
 
-            // Trigger the synth.
-            if (value.note) { // For single arpeggiated notes
-                this.synth.triggerAttackRelease(value.note, durationInSeconds, time);
-            } else if (value.notes && value.notes.length > 0) { // For block chords
-                this.synth.triggerAttackRelease(value.notes, durationInSeconds, time);
-            }
-            // Use Tone.Draw to schedule a UI update synchronized with the audio thread.
-            Tone.Draw.schedule(() => {
-                this.onTick(value.id);
-            }, time);
-        }, allEvents).start(0);
+                if (value.note) {
+                    this.synth.triggerAttackRelease(value.note, durationInSeconds, time);
+                } else if (value.notes && value.notes.length > 0) {
+                    this.synth.triggerAttackRelease(value.notes, durationInSeconds, time);
+                }
+                
+                Tone.Draw.schedule(() => { this.onTick(value.id); }, time);
+            }, allEvents).start(0);
+        } else {
+            // If the part already exists, just add the new events to it.
+            allEvents.forEach(event => this.part.add(event));
+        }
         
-        // 5. Set the transport's loop points based on the total length of the progression.
         const totalBars = Math.floor(accumulatedBeats / timeSignature);
         const totalBeatsRemainder = accumulatedBeats % timeSignature;
         Tone.Transport.loopEnd = `${totalBars}:${totalBeatsRemainder}:0`;
-        this.part.loop = false; // The Transport handles looping, not the part itself.
+        this.part.loop = false;
     }
 
     /**
-     * Updates the player with a new chord progression.
-     * Rebuilds the schedule while ensuring smooth playback.
+     * Updates the player with a new chord progression by rebuilding the schedule.
      * @param progression The new progression data.
      */
     setProgression(progression: any[]) {
         const wasPlaying = Tone.Transport.state === 'started';
-        const currentPosition = Tone.Transport.position;
-
+        
+        // For a smoother transition, we pause playback while rebuilding the schedule.
         if (wasPlaying) {
             Tone.Transport.pause();
-            this.synth.releaseAll(); // Avoid hanging notes on progression change
         }
 
         this.progression = progression;
         this._rebuildPart();
 
         if (wasPlaying) {
+            // If the progression was cleared, stop completely.
             if (this.progression.length === 0) {
-                // If the progression was cleared while playing, stop everything.
                 this.stop();
             } else {
-                // Resume playback from the previous position.
-                Tone.Transport.start(Tone.now(), currentPosition);
+                // Otherwise, resume playback.
+                Tone.Transport.start();
             }
         }
     }
     
     /**
-     * Changes the synthesizer voice. This is a complex operation that involves
-     * disposing of the old synth and creating a new one, then rebuilding the schedule.
+     * Changes the synthesizer voice. This method performs a robust, multi-step teardown
+     * of the old synth and its scheduled events before swapping to the new one to prevent race conditions.
      * @param synthType A string identifier for the new synth.
      * @param initialSettings The initial parameters for the new synth.
      */
     setSynth(synthType: string, initialSettings: any) {
+        console.log(`[setSynth] START: Attempting to switch to "${synthType}". Current synth: "${this.currentSynthType}"`);
         if (this.currentSynthType === synthType) {
-            return; // No change needed
+            console.log('[setSynth] INFO: synthType is the same. Aborting switch.');
+            return;
         }
-
+    
         const wasPlaying = Tone.Transport.state === 'started';
-        const currentPosition = Tone.Transport.position;
-
+        const position = Tone.Transport.position;
+        console.log(`[setSynth] State before stop: wasPlaying=${wasPlaying}, position=${position}`);
+    
+        // 1. Force stop playback to halt the Ticker and prevent new events from being scheduled.
         if (wasPlaying) {
-            Tone.Transport.pause();
+            console.log('[setSynth] ACTION: Stopping Tone.Transport...');
+            Tone.Transport.stop();
+            console.log(`[setSynth] State after stop: Transport state is now "${Tone.Transport.state}"`);
         }
-
-        // CRITICAL: The Tone.Part holds references to the synth it schedules events for.
-        // We MUST dispose of the Part *before* disposing of the synth itself.
-        // Failure to do so can cause a race condition where a scheduled event tries to
-        // access the already-disposed synth, leading to errors.
+    
+        // 2. Cancel any events that were already scheduled on the transport timeline.
+        console.log('[setSynth] ACTION: Cancelling all scheduled transport events...');
+        Tone.Transport.cancel();
+        console.log('[setSynth] ACTION: Transport events cancelled.');
+    
+        // 3. Explicitly tell the old synth to release all its notes.
+        console.log('[setSynth] ACTION: Releasing all notes on old synth...');
+        this.synth.releaseAll();
+        console.log('[setSynth] ACTION: Old synth notes released.');
+    
+        // --- The actual swap ---
+        console.log('[setSynth] --- Synth Swap Start ---');
+        
+        // 4. Dispose the old part entirely. It holds callbacks and references that could cause issues.
+        // A new one will be created by _rebuildPart.
+        console.log('[setSynth] 1. Disposing old Tone.Part object.');
         if (this.part) {
-            this.part.clear();
+             this.part.stop();
             this.part.dispose();
             this.part = null;
         }
-        
-        // Now it's safe to release any hanging notes and dispose of the old synth.
-        this.synth.releaseAll();
-        this.synth.dispose();
-        
-        this.currentSynthType = synthType;
+    
+        console.log(`[setSynth] 2. Creating new synth of type "${synthType}"`);
+        const oldSynth = this.synth;
         const { volume, ...voiceOptions } = initialSettings;
-
-        // Select the Tone.js voice constructor based on the type string.
         let voice: any = Tone.Synth;
         if (synthType === 'Rhodes' || synthType === 'FMSynth' || synthType === 'VCS3Drone' || synthType === 'VCS3FX') {
             voice = Tone.FMSynth;
@@ -288,19 +283,42 @@ export class Player {
         } else if (synthType === 'Synth') {
             voice = Tone.Synth;
         }
-
-        // Create the new PolySynth instance.
-        this.synth = new Tone.PolySynth(voice, voiceOptions).connect(this.reverb);
+        const newSynth = new Tone.PolySynth(voice, voiceOptions).connect(this.reverb);
         if (volume !== undefined) {
-            this.synth.volume.value = volume;
+            newSynth.volume.value = volume;
         }
+        console.log('[setSynth] 2. New synth created successfully.');
         
-        // Rebuild the part with the new synth.
+        console.log('[setSynth] 3. Swapping synth instance reference.');
+        this.synth = newSynth;
+        this.currentSynthType = synthType;
+    
+        // 5. Defer disposal of the old synth object itself to the end of the JS event loop.
+        console.log('[setSynth] 4. Scheduling old synth disposal for the end of the event loop task.');
+        setTimeout(() => {
+            try {
+                if (!oldSynth.disposed) {
+                  //  oldSynth.dispose();
+                    console.log('[setSynth] 4a. Old synth disposed successfully in scheduled timeout.');
+                }
+            } catch (e) {
+                console.error('[setSynth] ERROR disposing old synth:', e);
+            }
+        }, 10);
+        console.log('[setSynth] --- Synth Swap End ---');
+    
+        // 6. Rebuild the schedule completely. This will create a new Tone.Part.
+        console.log('[setSynth] 5. Rebuilding Tone.Part...');
         this._rebuildPart();
-        
+        console.log('[setSynth] 5. Tone.Part rebuilt.');
+    
+        // 7. Resume playback if it was active, from the saved position.
         if (wasPlaying) {
-            Tone.Transport.start(Tone.now(), currentPosition);
+            console.log(`[setSynth] ACTION: Restarting transport from position ${position}`);
+            Tone.Transport.start(Tone.now(), position);
+            console.log(`[setSynth] ACTION: Transport restarted. New state: "${Tone.Transport.state}"`);
         }
+        console.log(`[setSynth] END: Switch to "${synthType}" complete.`);
     }
 
     /** Sets the playback tempo. */

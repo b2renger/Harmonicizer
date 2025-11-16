@@ -13,8 +13,7 @@
     box-sizing: border-box; /* Ensures border and padding don't cause overflow. */
     
     /* --- Overflow & Scrolling --- */
-    overflow-x: auto; /* Enables horizontal scrolling, necessary for the drag logic. */
-    overflow-y: hidden; /* Disables vertical scrolling. */
+    overflow: hidden; /* Content will be clipped, not scrolled. */
     
     /* --- User Interaction & Animation --- */
     user-select: none; /* Prevents text selection during drag-to-scroll. */
@@ -26,22 +25,6 @@
     cursor: grabbing;
 }
 
-/* Custom scrollbar for a more integrated look in WebKit browsers. */
-.note-visualizer::-webkit-scrollbar {
-    height: 8px;
-}
-.note-visualizer::-webkit-scrollbar-track {
-    background: #1a1a1a;
-    border-radius: 4px;
-}
-.note-visualizer::-webkit-scrollbar-thumb {
-    background: #444;
-    border-radius: 4px;
-}
-.note-visualizer::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-
 /* Makes note columns clickable in interactive mode. */
 .note-visualizer.interactive .note-column {
     cursor: pointer;
@@ -49,9 +32,8 @@
 
 .note-column {
     /* --- Sizing --- */
-    /* A fixed width with flex-shrink: 0 is the key to the horizontal scrolling layout. */
-    width: 18px;
-    flex-shrink: 0;
+    flex: 1; /* Distributes available width equally among all note columns. */
+    min-width: 0; /* Allows columns to shrink smaller than their content if needed. */
     height: 100%; /* Fill the container's height. */
     box-sizing: border-box;
 
