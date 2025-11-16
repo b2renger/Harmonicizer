@@ -265,7 +265,7 @@ export class Player {
         // A new one will be created by _rebuildPart.
         console.log('[setSynth] 1. Disposing old Tone.Part object.');
         if (this.part) {
-             this.part.stop();
+            //this.part.stop();
             this.part.dispose();
             this.part = null;
         }
@@ -298,7 +298,7 @@ export class Player {
         setTimeout(() => {
             try {
                 if (!oldSynth.disposed) {
-                  //  oldSynth.dispose();
+                  // oldSynth.dispose();
                     console.log('[setSynth] 4a. Old synth disposed successfully in scheduled timeout.');
                 }
             } catch (e) {
