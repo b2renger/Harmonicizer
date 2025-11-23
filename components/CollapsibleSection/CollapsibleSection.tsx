@@ -5,6 +5,7 @@ import './CollapsibleSection.css';
 interface CollapsibleSectionProps extends React.PropsWithChildren {
     title: string;
     defaultOpen?: boolean; // defaultOpen is optional as it has a default value in useState
+    key?: string | number;
 }
 
 // Update the component signature to use the defined props interface

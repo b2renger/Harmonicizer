@@ -1,5 +1,6 @@
 
 
+
 .composer {
     display: flex;
     flex-direction: column;
@@ -32,19 +33,16 @@
     margin-top: 0.25rem;
 }
 
-.playback-controls-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.secondary-controls {
+.progression-controls {
     display: flex;
     flex-wrap: wrap;
     gap: 1.5rem;
     align-items: center;
-    border-top: 1px solid #333;
-    padding-top: 1rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: #1e1e1e;
+    border-radius: 8px;
 }
 
 .io-controls {
@@ -86,7 +84,7 @@
 }
 
 @media (max-width: 768px) {
-    .secondary-controls {
+    .progression-controls {
         justify-content: center; /* Center controls when they wrap */
         gap: 1rem; /* Reduce gap on smaller screens */
     }

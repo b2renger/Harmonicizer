@@ -1,4 +1,3 @@
-
 import React from 'react';
 import './ProgressionAnalyzer.css';
 import { getDisplayChordName, getAbbreviatedNameFromNotes } from '../../theory/chords.js';
@@ -53,7 +52,10 @@ const ProgressionAnalyzer = ({
     suggestionContextChord,
     screenWidth
 }) => {
+    if (!analysis) return null;
     const { hints, analysis: progressionAnalysis } = analysis;
+    if (!hints || !progressionAnalysis) return null;
+
     const { harmonicTheory } = suggestions;
 
     const isDesktop = screenWidth >= 900;

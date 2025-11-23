@@ -1,7 +1,11 @@
 
+
 import * as Tone from 'tone';
-import { FMSynth, MonoSynth, AMSynth, Synth, PolySynthOptions, SynthOptions } from 'tone';
+import { FMSynth, MonoSynth, AMSynth, Synth, PolySynthOptions, Sampler } from 'tone';
 import { RecursivePartial } from 'tone/build/esm/core/util/Interface';
+import { soundfonts } from './soundfonts.js';
+import { Note } from 'tonal';
+
 
 /**
  * The Player class is a controller for Tone.js, encapsulating all audio-related logic
@@ -13,10 +17,12 @@ export class Player {
     gainNode: Tone.Gain;
     /** The master reverb effect. */
     reverb: Tone.Reverb;
-    /** The current synthesizer instance. It's a PolySynth to handle multiple notes at once. */
-    synth: Tone.PolySynth;
+    /** The current synthesizer instance. It could be a PolySynth or a Sampler. */
+    synth: any;
     /** A callback function to notify the UI which chord is currently playing. */
-    onTick: (id: string | null) => void;
+    onTick: (id: string | null, songPartInstanceId?: string | null) => void;
+    /** A callback to notify the UI of the synthesizer's loading state. */
+    onLoadingStateChange: (isLoading: boolean) => void;
     /** The Tone.Part instance that schedules all musical events. It is created once and reused. */
     part: Tone.Part | null;
     /** Flag to determine if the arpeggiator is active. */
@@ -30,11 +36,15 @@ export class Player {
     /** A string identifier for the current synth type (e.g., 'Rhodes'). */
     currentSynthType: string;
 
-    constructor(onTick: (id: string | null) => void) {
+    constructor(
+        onTick: (id: string | null, songPartInstanceId?: string | null) => void,
+        onLoadingStateChange: (isLoading: boolean) => void
+    ) {
         this.gainNode = new Tone.Gain(0.8).toDestination();
         this.reverb = new Tone.Reverb({ decay: 1.5, wet: 0.2, preDelay: 0.05 }).connect(this.gainNode);
         this.synth = new Tone.PolySynth(Tone.FMSynth).connect(this.reverb);
         this.onTick = onTick;
+        this.onLoadingStateChange = onLoadingStateChange;
         this.part = null;
         this.isArpeggiatorActive = false;
         this.arpeggiatorTiming = '16n';
@@ -47,6 +57,36 @@ export class Player {
     }
 
     /**
+     * Transposes an array of notes to fit within an instrument's defined MIDI range.
+     * Notes are shifted by octaves until they fit. Notes that cannot fit are removed.
+     * @param {string[]} notes - The notes to process.
+     * @param {string} instrumentName - The key of the instrument in the `soundfonts` object.
+     * @returns {string[]} An array of notes guaranteed to be within the instrument's range.
+     */
+    private _transposeNotesToRange(notes: string[], instrumentName: keyof typeof soundfonts): string[] {
+        const instrument = soundfonts[instrumentName];
+        if (!instrument || !instrument.minMidi || !instrument.maxMidi) {
+            return notes; // If no range is defined, return original notes.
+        }
+
+        const { minMidi, maxMidi } = instrument;
+
+        return notes.map(note => {
+            let midi = Note.midi(note);
+            if (midi === null) return null;
+
+            while (midi < minMidi) { midi += 12; }
+            while (midi > maxMidi) { midi -= 12; }
+            
+            // Final check: if the range is smaller than an octave, transposition might not be enough.
+            if (midi >= minMidi && midi <= maxMidi) {
+                return Note.fromMidi(midi);
+            }
+            return null; // Note cannot be played on this instrument.
+        }).filter((n): n is string => n !== null); // Filter out nulls.
+    }
+
+    /**
      * Plays a single chord immediately for previewing purposes.
      * @param notes An array of note names to play (e.g., ['C4', 'E4', 'G4']).
      */
@@ -55,7 +95,15 @@ export class Player {
             Tone.start();
         }
         if (notes.length === 0) return;
-        this.synth.triggerAttackRelease(notes, "8n", Tone.now());
+
+        let notesToPlay = notes;
+        if (this.currentSynthType === 'SoundFont' && this.synth.name) {
+            notesToPlay = this._transposeNotesToRange(notes, this.synth.name);
+        }
+
+        if (notesToPlay.length > 0) {
+            this.synth.triggerAttackRelease(notesToPlay, "8n", Tone.now());
+        }
     }
 
     /**
@@ -86,7 +134,7 @@ export class Player {
         // Reset transport position and part state.
         Tone.Transport.position = 0;
         this.part?.stop(0); 
-        this.onTick(null);
+        this.onTick(null, null);
     }
     
     /**
@@ -103,7 +151,7 @@ export class Player {
         // If the progression is empty, there's nothing more to do.
         if (this.progression.length === 0) {
             Tone.Transport.loopEnd = 0;
-            this.onTick(null);
+            this.onTick(null, null);
             return;
         }
 
@@ -119,7 +167,7 @@ export class Player {
             const notes = chord.notes;
 
             if (notes.length === 0) {
-                 allEvents.push({ time: eventStart, id: chord.id, noteDuration: chordDurationInBeats });
+                 allEvents.push({ time: eventStart, id: chord.id, noteDuration: chordDurationInBeats, songPartInstanceId: chord.songPartInstanceId });
                 accumulatedBeats += chordDurationInBeats;
                 continue;
             }
@@ -155,6 +203,7 @@ export class Player {
                         note: note,
                         noteDuration: finalNoteDurationInBeats,
                         id: chord.id,
+                        songPartInstanceId: chord.songPartInstanceId,
                     });
                     
                     noteIndex++;
@@ -167,6 +216,7 @@ export class Player {
                     notes: notes,
                     noteDuration: chordDurationInBeats,
                     id: chord.id,
+                    songPartInstanceId: chord.songPartInstanceId,
                 });
                 accumulatedBeats += chordDurationInBeats;
             }
@@ -179,13 +229,27 @@ export class Player {
                 
                 const durationInSeconds = (60 / Tone.Transport.bpm.value) * value.noteDuration;
 
+                // Prepare notes by transposing if needed for the current instrument.
+                let notesToPlay = [];
                 if (value.note) {
-                    this.synth.triggerAttackRelease(value.note, durationInSeconds, time);
-                } else if (value.notes && value.notes.length > 0) {
-                    this.synth.triggerAttackRelease(value.notes, durationInSeconds, time);
+                    notesToPlay = [value.note];
+                } else if (value.notes) {
+                    notesToPlay = value.notes;
+                }
+
+                if (this.currentSynthType === 'SoundFont' && this.synth.name) {
+                    notesToPlay = this._transposeNotesToRange(notesToPlay, this.synth.name);
+                }
+
+                if (notesToPlay.length > 0) {
+                     if (value.note) {
+                        this.synth.triggerAttackRelease(notesToPlay[0], durationInSeconds, time);
+                    } else {
+                        this.synth.triggerAttackRelease(notesToPlay, durationInSeconds, time);
+                    }
                 }
                 
-                Tone.Draw.schedule(() => { this.onTick(value.id); }, time);
+                Tone.Draw.schedule(() => { this.onTick(value.id, value.songPartInstanceId); }, time);
             }, allEvents).start(0);
         } else {
             // If the part already exists, just add the new events to it.
@@ -225,86 +289,147 @@ export class Player {
     }
     
     /**
+     * Transforms the flat Moog settings from the UI state into the nested
+     * object structure required by Tone.MonoSynth.
+     * @param settings The flat settings object.
+     * @returns A nested settings object for Tone.MonoSynth.
+     */
+    private _transformMoogSettings(settings: any) {
+        const {
+            envelope,
+            filterCutoff, filterResonance,
+            filterAttack, filterDecay, filterSustain, filterRelease
+        } = settings;
+
+        return {
+            envelope,
+            filter: {
+                // The filter type for a Moog is a lowpass filter.
+                type: 'lowpass',
+                // Rolloff determines how steep the filter cutoff is. -24dB/octave is characteristic of a Moog.
+                rolloff: -24,
+                frequency: filterCutoff,
+                Q: filterResonance,
+            },
+            filterEnvelope: {
+                attack: filterAttack,
+                decay: filterDecay,
+                sustain: filterSustain,
+                release: filterRelease,
+                // These are sensible defaults for a synth filter envelope.
+                baseFrequency: 200, 
+                octaves: 7
+            }
+        };
+    }
+
+    /**
      * Changes the synthesizer voice. This method performs a robust, multi-step teardown
      * of the old synth and its scheduled events before swapping to the new one to prevent race conditions.
+     * It is now asynchronous to handle the loading time of soundfont samples.
      * @param synthType A string identifier for the new synth.
      * @param initialSettings The initial parameters for the new synth.
      */
-    setSynth(synthType: string, initialSettings: any) {
+    async setSynth(synthType: string, initialSettings: any) {
         // Step 0: Abort if we are not actually changing the synth type.
         if (this.currentSynthType === synthType) {
             return;
         }
-    
-        const wasPlaying = Tone.Transport.state === 'started';
-        const position = Tone.Transport.position;
-    
-        // Step 1: Immediately stop the transport. This is critical because it halts the
-        // internal Tone.js clock (the Ticker), preventing it from scheduling new events
-        // for the old synth while we are in the process of swapping it out.
-        if (wasPlaying) {
-            Tone.Transport.stop();
-        }
-    
-        // Step 2: Cancel any events that were already scheduled on the transport's timeline
-        // but haven't played yet. This cleans the slate for the new synth.
-        Tone.Transport.cancel();
-    
-        // Step 3: Force the old synthesizer to release any notes that might be stuck
-        // playing (e.g., due to a long release time).
-        this.synth.releaseAll();
-    
-        // --- The Core Synth Swap ---
+
+        this.onLoadingStateChange(true); // Signal that a synth change has started.
+
+        try {
+            const wasPlaying = Tone.Transport.state === 'started';
+            const position = Tone.Transport.position;
         
-        // Step 4: Completely dispose of the old Tone.Part. The Part object holds references
-        // to the old synth in its callbacks. To prevent these old callbacks from firing
-        // unpredictably, we destroy the Part entirely. A new one will be created later.
-        if (this.part) {
-            this.part.dispose();
-            this.part = null;
-        }
-    
-        // Step 5: Create the new synthesizer instance. We separate volume from other
-        // voice-specific settings for easier management.
-        const oldSynth = this.synth;
-        const { volume, ...voiceOptions } = initialSettings;
-        let voice: any = Tone.Synth;
-        if (synthType === 'Rhodes' || synthType === 'FMSynth' || synthType === 'VCS3Drone' || synthType === 'VCS3FX') {
-            voice = Tone.FMSynth;
-        } else if (synthType === 'MoogLead' || synthType === 'MoogBass') {
-            voice = Tone.MonoSynth;
-        } else if (synthType === 'AMSynth') {
-            voice = Tone.AMSynth;
-        } else if (synthType === 'Synth') {
-            voice = Tone.Synth;
-        }
-        const newSynth = new Tone.PolySynth(voice, voiceOptions).connect(this.reverb);
-        if (volume !== undefined) {
-            newSynth.volume.value = volume;
-        }
+            if (wasPlaying) { Tone.Transport.stop(); }
+            Tone.Transport.cancel();
+            this.synth.releaseAll();
         
-        // Step 6: Update the class properties to reference the new synth.
-        this.synth = newSynth;
-        this.currentSynthType = synthType;
-    
-        // Step 7: Schedule the disposal of the old synth object using a timeout. This defers
-        // the cleanup to the end of the JavaScript event loop task, ensuring that any final,
-        // in-flight audio processes related to the old synth can complete gracefully.
-        setTimeout(() => {
-            if (!oldSynth.disposed) {
-                // oldSynth.dispose(); // Temporarily commented out as it caused issues in some environments.
-                                    // Modern browsers are good at garbage collection, making this less critical.
+            if (this.part) {
+                this.part.dispose();
+                this.part = null;
             }
-        }, 50);
-    
-        // Step 8: Rebuild the entire musical schedule from scratch with the new synth.
-        // This will create a brand new Tone.Part object with callbacks tied to the new synth.
-        this._rebuildPart();
-    
-        // Step 9: If playback was active before the swap, resume it from the exact
-        // position it was stopped. This creates a seamless transition for the user.
-        if (wasPlaying) {
-            Tone.Transport.start(Tone.now(), position);
+        
+            const oldSynth = this.synth;
+            const { volume, ...voiceOptions } = initialSettings;
+            
+            let newSynth;
+
+            if (synthType === 'SoundFont') {
+                const instrumentConfig = soundfonts[initialSettings.instrument];
+                if (!instrumentConfig) {
+                    console.error(`Soundfont instrument "${initialSettings.instrument}" not found.`);
+                    return;
+                }
+                
+                // CRITICAL FIX: Wrap sampler creation in a promise that resolves upon loading.
+                newSynth = await new Promise<Tone.Sampler>((resolve, reject) => {
+                    const sampler = new Tone.Sampler({
+                        urls: instrumentConfig.notes,
+                        baseUrl: instrumentConfig.baseUrl,
+                        release: 1,
+                        attack: 0.01,
+                        onload: () => {
+                            console.log(`${instrumentConfig.name} samples loaded.`);
+                            resolve(sampler);
+                        },
+                        onerror: (err) => {
+                            console.error("Error loading soundfont samples:", err);
+                            reject(err);
+                        },
+                    }).connect(this.reverb);
+                    // The 'name' property is not standard on Tone.Sampler, but we add it for our own tracking.
+                    (sampler as any).name = initialSettings.instrument;
+                });
+
+            } else {
+                let voice: any = Tone.Synth;
+                if (synthType === 'Rhodes' || synthType === 'FMSynth' || synthType === 'VCS3Drone' || synthType === 'VCS3FX') {
+                    voice = Tone.FMSynth;
+                } else if (synthType === 'MoogLead' || synthType === 'MoogBass') {
+                    voice = Tone.MonoSynth;
+                } else if (synthType === 'AMSynth') {
+                    voice = Tone.AMSynth;
+                } else if (synthType === 'Synth') {
+                    voice = Tone.Synth;
+                }
+
+                let finalOptions = voiceOptions;
+                if (synthType === 'MoogLead' || synthType === 'MoogBass') {
+                    finalOptions = this._transformMoogSettings(voiceOptions);
+                }
+
+                // CORRECTED INSTANTIATION: Create PolySynth with polyphony options, then set voice options.
+                // FIX: Property 'polyphony' does not exist on type 'Partial<PolySynthOptions<any>>'. Changed to 'maxPolyphony'.
+                const polySynthOptions: Partial<PolySynthOptions<any>> = { maxPolyphony: 64 };
+                newSynth = new Tone.PolySynth(voice, polySynthOptions).connect(this.reverb);
+                newSynth.set(finalOptions);
+            }
+            
+            if (volume !== undefined && newSynth.volume) {
+                newSynth.volume.value = volume;
+            }
+            
+            this.synth = newSynth;
+            this.currentSynthType = synthType;
+        
+            setTimeout(() => {
+                if (!oldSynth.disposed) {
+                    // oldSynth.dispose(); // Temporarily commented out as it caused issues in some environments.
+                }
+            }, 50);
+        
+            this._rebuildPart();
+        
+            if (wasPlaying) {
+                Tone.Transport.start(Tone.now(), position);
+            }
+        } catch (error) {
+            console.error("Failed to set new synthesizer:", error);
+            // In case of error, you might want to revert to a default synth or handle it gracefully.
+        } finally {
+            this.onLoadingStateChange(false); // Signal that loading is complete, even if it failed.
         }
     }
 
@@ -340,11 +465,41 @@ export class Player {
      * Updates the parameters of the current synthesizer voice in real-time.
      * @param settings An object containing the new synth parameters.
      */
-    updateVoiceSettings(settings: any) {
+    async updateVoiceSettings(settings: any) {
         const { volume, ...voiceSettings } = settings;
         if (volume !== undefined && this.synth.volume) {
             this.synth.volume.value = volume;
         }
+
+        if (this.currentSynthType === 'SoundFont') {
+            // Check if the instrument has changed. If so, a full async synth swap is required.
+            if (voiceSettings.instrument && this.synth.name !== voiceSettings.instrument) {
+                const oldType = this.currentSynthType;
+                this.currentSynthType = ''; // Force `setSynth` to run by clearing the current type.
+                await this.setSynth(oldType, settings);
+            }
+            return;
+        }
+        
+        if (this.currentSynthType === 'MoogLead' || this.currentSynthType === 'MoogBass') {
+            if (typeof voiceSettings.filterCutoff === 'number') {
+                this.synth.set({ 'filter.frequency': voiceSettings.filterCutoff });
+            }
+            if (typeof voiceSettings.filterResonance === 'number') {
+                this.synth.set({ 'filter.Q': voiceSettings.filterResonance });
+            }
+            this.synth.set({
+                envelope: voiceSettings.envelope,
+                filterEnvelope: {
+                    attack: voiceSettings.filterAttack,
+                    decay: voiceSettings.filterDecay,
+                    sustain: voiceSettings.filterSustain,
+                    release: voiceSettings.filterRelease,
+                }
+            });
+            return;
+        }
+
         this.synth.set(voiceSettings);
     }
     

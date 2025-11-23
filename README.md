@@ -1,11 +1,9 @@
 
 TODO
-
+- improve harmonic knowledge base
 - fix not edittin mobile (need a long press to activate a note, maybe there is debounce time that could be shorten)
 
 - add a performance section to improvize melodies
-- export / import in json
-- record midi (with arpeggiator, and performance ?)
 
 
 --

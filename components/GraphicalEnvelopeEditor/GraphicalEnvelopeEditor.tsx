@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import './GraphicalEnvelopeEditor.css';
 import Knob from '../Knob/Knob.tsx';
@@ -123,6 +124,27 @@ const GraphicalEnvelopeEditor = (props) => {
                         </div>
                     </div>
                 );
+             case 'SoundFont':
+                return (
+                    <div className="synth-parameters-content">
+                        <div className="soundfont-selector">
+                            <label htmlFor="soundfont-instrument">Instrument:</label>
+                            <select
+                                id="soundfont-instrument"
+                                value={props.soundFontSettings.instrument}
+                                onChange={(e) => props.onSoundFontSettingsChange(s => ({ ...s, instrument: e.target.value }))}
+                            >
+                                {/* FIX: Changed destructuring to handle untyped props. The `soundfontData` is cast to `any` to access the `name` property without a compile error. */}
+                                {Object.entries(props.soundfonts).map(([id, soundfontData]) => (
+                                    <option key={id} value={id}>{(soundfontData as any).name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="knob-grid">
+                            <Knob label="Volume" value={props.soundFontSettings.volume} min={-40} max={6} step={0.1} onChange={(v) => props.onSoundFontSettingsChange(s => ({ ...s, volume: v }))} unit="dB" />
+                        </div>
+                    </div>
+                );
             default:
                 return null;
         }
@@ -163,6 +185,7 @@ const GraphicalEnvelopeEditor = (props) => {
     };
     
     const isMobile = props.screenWidth <= 768;
+    const gridTemplateColumns = isMobile || props.synthType === 'SoundFont' ? '1fr' : '1fr 1fr';
 
     return (
         <div className="graphical-envelope-editor">
@@ -175,6 +198,7 @@ const GraphicalEnvelopeEditor = (props) => {
                         value={props.synthType}
                         onChange={(e) => props.onSynthChange(e.target.value)}
                     >
+                        <option value="SoundFont">SoundFont</option>
                         <option value="Rhodes">Rhodes EP</option>
                         <option value="MoogLead">Moog Lead</option>
                         <option value="MoogBass">Moog Bass</option>
@@ -235,15 +259,17 @@ const GraphicalEnvelopeEditor = (props) => {
 
             <div 
                 className="synth-main-panel"
-                style={{ gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}
+                style={{ gridTemplateColumns: gridTemplateColumns }}
             >
                 <div className="synth-parameters-panel">
                     {renderSynthSpecificKnobs()}
                 </div>
-                <div className="amplitude-envelope-panel">
-                    <h4>Amplitude Envelope</h4>
-                    <ADSRGraph envelope={getCurrentEnvelope()} onEnvelopeChange={onEnvelopeChange} />
-                </div>
+                {props.synthType !== 'SoundFont' && (
+                    <div className="amplitude-envelope-panel">
+                        <h4>Amplitude Envelope</h4>
+                        <ADSRGraph envelope={getCurrentEnvelope()} onEnvelopeChange={onEnvelopeChange} />
+                    </div>
+                )}
             </div>
 
             <div className="bottom-controls-panel">

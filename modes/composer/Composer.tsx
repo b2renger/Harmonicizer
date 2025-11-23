@@ -1,3 +1,5 @@
+
+
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
@@ -9,7 +11,10 @@ import GraphicalEnvelopeEditor from '../../components/GraphicalEnvelopeEditor/Gr
 import KeySignature from '../../components/KeySignature/KeySignature.tsx';
 import ProgressionAnalyzer from '../../components/ProgressionAnalyzer/ProgressionAnalyzer.tsx';
 import CollapsibleSection from '../../components/CollapsibleSection/CollapsibleSection.tsx';
+import ProgressionTabs from '../../components/ProgressionTabs/ProgressionTabs.tsx';
+import SongStructure from '../../components/SongStructure/SongStructure.tsx';
 import { Player } from '../../audio/player.js';
+import { soundfonts } from '../../audio/soundfonts.js';
 import { analyzeProgression, getSuggestionsForChord, getHarmonicTheoryForChord } from '../../theory/analysis.js';
 import { generateRandomProgression, getDiatonicChords } from '../../theory/harmony.js';
 import './Composer.css';
@@ -64,6 +69,10 @@ const DEFAULT_BASIC_SYNTH_SETTINGS = {
     envelope: DEFAULT_ENVELOPE,
     volume: -9,
 };
+const DEFAULT_SOUNDFONT_SETTINGS = {
+    volume: -6,
+    instrument: 'acoustic_grand_piano',
+};
 
 /**
  * The Composer component is the main container and orchestrator for the application.
@@ -74,17 +83,23 @@ const Composer = ({ screenWidth, screenHeight }) => {
     // --- STATE MANAGEMENT ---
     
     // Core progression data and history for undo functionality
-    const [progression, setProgression] = useState([
-        { id: crypto.randomUUID(), notes: ['C4', 'E4', 'G4', 'B4'], duration: 4 }, // Cmaj7
-        { id: crypto.randomUUID(), notes: ['A3', 'C4', 'E4', 'G4'], duration: 4 }, // Am7
-        { id: crypto.randomUUID(), notes: ['D4', 'F4', 'A4', 'C5'], duration: 4 }, // Dm7
-        { id: crypto.randomUUID(), notes: ['G4', 'B4', 'D5', 'F5'], duration: 4 }, // G7
-    ]);
-    const [progressionHistory, setProgressionHistory] = useState([]);
+    const [progressions, setProgressions] = useState({
+        'A': [
+            { id: crypto.randomUUID(), notes: ['C4', 'E4', 'G4', 'B4'], duration: 4 }, // Cmaj7
+            { id: crypto.randomUUID(), notes: ['A3', 'C4', 'E4', 'G4'], duration: 4 }, // Am7
+            { id: crypto.randomUUID(), notes: ['D4', 'F4', 'A4', 'C5'], duration: 4 }, // Dm7
+            { id: crypto.randomUUID(), notes: ['G4', 'B4', 'D5', 'F5'], duration: 4 }, // G7
+        ]
+    });
+    const [activeProgressionId, setActiveProgressionId] = useState('A');
+    // FIX: Explicitly type songStructure state to avoid type inference issues with crypto.randomUUID()
+    const [songStructure, setSongStructure] = useState<{ id: string; progressionId: string; }[]>([{ id: crypto.randomUUID(), progressionId: 'A' }]);
+    const [progressionsHistory, setProgressionsHistory] = useState([]);
+    
     const [selectedChordId, setSelectedChordId] = useState(null);
 
     // Transport and playback state
-    const [isPlaying, setIsPlaying] = useState(false);
+    const [playbackState, setPlaybackState] = useState<'stopped' | 'playing'>('stopped');
     const [tempo, setTempo] = useState(120);
     const [synthType, setSynthType] = useState('Rhodes');
     const [isLooping, setIsLooping] = useState(true);
@@ -98,6 +113,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
     const [fmSettings, setFmSettings] = useState(DEFAULT_FM_SETTINGS);
     const [amSettings, setAmSettings] = useState(DEFAULT_AM_SETTINGS);
     const [basicSynthSettings, setBasicSynthSettings] = useState(DEFAULT_BASIC_SYNTH_SETTINGS);
+    const [soundFontSettings, setSoundFontSettings] = useState(DEFAULT_SOUNDFONT_SETTINGS);
 
     // Global effects state
     const [masterGain, setMasterGain] = useState(0.8);
@@ -114,41 +130,44 @@ const Composer = ({ screenWidth, screenHeight }) => {
     const [musicalMode, setMusicalMode] = useState('major');
     
     // UI state
-    const [currentlyPlayingChordId, setCurrentlyPlayingChordId] = useState(null);
+    const [currentlyPlayingChordId, setCurrentlyPlayingChordId] = useState<string | null>(null);
+    const [currentlyPlayingSongPartInstanceId, setCurrentlyPlayingSongPartInstanceId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingChord, setEditingChord] = useState(null);
     const [isNoteVisualizerVisible, setIsNoteVisualizerVisible] = useState(false);
+    const [isSynthLoading, setIsSynthLoading] = useState(false);
 
     // Refs for audio engine and file input
     const player = useRef<Player | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // --- DERIVED STATE & MEMOIZED COMPUTATIONS ---
 
-    // --- MEMOIZED COMPUTATIONS ---
+    const activeProgression = useMemo(() => progressions[activeProgressionId] || [], [progressions, activeProgressionId]);
 
     // Memoizes the analysis of the entire progression. Re-calculates only when the progression or key changes.
-    const analysisResults = useMemo(() => analyzeProgression(progression, musicalKey, musicalMode), [progression, musicalKey, musicalMode]);
+    const analysisResults = useMemo(() => analyzeProgression(activeProgression, musicalKey, musicalMode), [activeProgression, musicalKey, musicalMode]);
     
     // Memoizes the currently selected chord for providing context to other components.
     const selectionContext = useMemo(() => {
-        if (!selectedChordId || progression.length === 0) return null;
-        const selectedIndex = progression.findIndex(c => c.id === selectedChordId);
+        if (!selectedChordId || activeProgression.length === 0) return null;
+        const selectedIndex = activeProgression.findIndex(c => c.id === selectedChordId);
         if (selectedIndex === -1) return null;
-        return progression[selectedIndex];
-    }, [selectedChordId, progression]);
+        return activeProgression[selectedIndex];
+    }, [selectedChordId, activeProgression]);
 
     // Memoizes chord suggestions. Suggestions are based on the selected chord, or the last chord if none is selected.
     const exhaustiveSuggestions = useMemo(() => {
         const contextChord = selectionContext 
             ? selectionContext
-            : progression.length > 0 ? progression[progression.length - 1] : null;
+            : activeProgression.length > 0 ? activeProgression[activeProgression.length - 1] : null;
         const contextChordName = contextChord && contextChord.notes.length > 0 ? detectChordFromNotes(contextChord.notes) : null;
         const categorized = getSuggestionsForChord(contextChordName, musicalKey, musicalMode);
         const harmonicTheory = contextChordName
             ? getHarmonicTheoryForChord(contextChordName, musicalKey, musicalMode)
             : null;
         return { categorized, harmonicTheory };
-    }, [selectionContext, progression, musicalKey, musicalMode]);
+    }, [selectionContext, activeProgression, musicalKey, musicalMode]);
 
     // Memoizes the settings object for the currently active synthesizer.
     const currentSynthSettings = useMemo(() => {
@@ -161,20 +180,21 @@ const Composer = ({ screenWidth, screenHeight }) => {
             case 'FMSynth': return fmSettings;
             case 'AMSynth': return amSettings;
             case 'Synth': return basicSynthSettings;
+            case 'SoundFont': return soundFontSettings;
             default: return basicSynthSettings;
         }
-    }, [synthType, rhodesSettings, moogLeadSettings, moogBassSettings, vcs3DroneSettings, vcs3FxSettings, fmSettings, amSettings, basicSynthSettings]);
+    }, [synthType, rhodesSettings, moogLeadSettings, moogBassSettings, vcs3DroneSettings, vcs3FxSettings, fmSettings, amSettings, basicSynthSettings, soundFontSettings]);
 
     // --- CALLBACKS & HANDLERS ---
     
     /**
-     * A wrapper for setProgression that also saves the previous state to a history buffer for undo functionality.
+     * A wrapper for setProgressions that also saves the previous state to a history buffer for undo functionality.
      */
-    const setProgressionWithHistory = useCallback((newProgressionOrFn) => {
-        setProgression(currentProgression => {
+    const setProgressionsWithHistory = useCallback((newProgressionsOrFn) => {
+        setProgressions(currentProgressions => {
             // Push the current state to history before updating.
-            setProgressionHistory(prevHistory => {
-                const newHistory = [...prevHistory, currentProgression];
+            setProgressionsHistory(prevHistory => {
+                const newHistory = [...prevHistory, currentProgressions];
                  if (newHistory.length > MAX_HISTORY_SIZE) {
                     return newHistory.slice(1); // Keep history size bounded.
                 }
@@ -182,39 +202,50 @@ const Composer = ({ screenWidth, screenHeight }) => {
             });
 
             // Calculate the new progression state.
-            const newProgression = typeof newProgressionOrFn === 'function' 
-                ? newProgressionOrFn(currentProgression) 
-                : newProgressionOrFn;
+            const newProgressions = typeof newProgressionsOrFn === 'function' 
+                ? newProgressionsOrFn(currentProgressions) 
+                : newProgressionsOrFn;
 
-            // If the currently selected chord was removed, reset the selection.
-            if (selectedChordId && !newProgression.some(c => c.id === selectedChordId)) {
+            // If the currently selected chord was removed from the active progression, reset the selection.
+            const newActiveProgression = newProgressions[activeProgressionId] || [];
+            if (selectedChordId && !newActiveProgression.some(c => c.id === selectedChordId)) {
                 setSelectedChordId(null);
             }
-            return newProgression;
+            return newProgressions;
         });
-    }, [selectedChordId]);
+    }, [selectedChordId, activeProgressionId]);
 
     /**
      * Reverts the progression to its previous state from the history buffer.
      */
     const handleUndo = useCallback(() => {
-        if (progressionHistory.length === 0) return;
-        const previousProgression = progressionHistory[progressionHistory.length - 1];
-        const newHistory = progressionHistory.slice(0, -1);
-        setProgression(previousProgression);
-        setProgressionHistory(newHistory);
+        if (progressionsHistory.length === 0) return;
+        const previousProgressions = progressionsHistory[progressionsHistory.length - 1];
+        const newHistory = progressionsHistory.slice(0, -1);
+        setProgressions(previousProgressions);
+        setProgressionsHistory(newHistory);
+
+        const previousActiveProgression = previousProgressions[activeProgressionId] || [];
         // Deselect chord if it no longer exists in the reverted state.
-        if (selectedChordId && !previousProgression.some(c => c.id === selectedChordId)) {
+        if (selectedChordId && !previousActiveProgression.some(c => c.id === selectedChordId)) {
             setSelectedChordId(null);
         }
-    }, [progressionHistory, selectedChordId]);
+    }, [progressionsHistory, selectedChordId, activeProgressionId]);
 
     // --- SIDE EFFECTS (`useEffect`) ---
 
     // This effect runs only once on component mount to initialize the audio player.
     useEffect(() => {
         // Create the Player instance and store it in a ref.
-        player.current = new Player((id) => setCurrentlyPlayingChordId(id));
+        player.current = new Player(
+            (chordId, songPartInstanceId) => {
+                setCurrentlyPlayingChordId(chordId);
+                setCurrentlyPlayingSongPartInstanceId(songPartInstanceId || null);
+            },
+            (isLoading) => {
+                setIsSynthLoading(isLoading);
+            }
+        );
         
         // Set initial parameters on the player.
         player.current.setTempo(tempo);
@@ -224,7 +255,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
         player.current.setReverbTime(reverbTime);
         player.current.setArpeggiator(isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats);
         player.current.setSynth(synthType, currentSynthSettings);
-        player.current.setProgression(progression);
+        player.current.setProgression(activeProgression);
 
         // Cleanup function to dispose of the player and its resources on component unmount.
         return () => {
@@ -233,48 +264,87 @@ const Composer = ({ screenWidth, screenHeight }) => {
     }, []); // Empty dependency array ensures this runs only once.
 
     // These effects synchronize the audio player's state with the component's state whenever a property changes.
-    useEffect(() => {
-        if(player.current) {
-            player.current.setTempo(tempo);
-            player.current.setProgression(progression); // Progression is also needed for timing calculations.
-        }
-    }, [tempo, progression]);
+    useEffect(() => { player.current?.setTempo(tempo); }, [tempo]);
 
     useEffect(() => { player.current?.setGain(masterGain); }, [masterGain]);
     useEffect(() => { player.current?.setReverbWet(reverbWet); }, [reverbWet]);
     useEffect(() => { player.current?.setReverbTime(reverbTime); }, [reverbTime]);
 
     // When the synthType changes, a more complex `setSynth` method is called in the player.
-    useEffect(() => { player.current?.setSynth(synthType, currentSynthSettings); }, [synthType, currentSynthSettings]);
+    useEffect(() => {
+        const changeSynth = async () => {
+            if (player.current) {
+                await player.current.setSynth(synthType, currentSynthSettings);
+            }
+        };
+        changeSynth();
+    }, [synthType]);
 
     // When only the settings of the current synth change, a simpler update method is called.
-    useEffect(() => { player.current?.updateVoiceSettings(currentSynthSettings); }, [currentSynthSettings]);
+    useEffect(() => {
+        const updateSettings = async () => {
+            if (player.current) {
+                await player.current.updateVoiceSettings(currentSynthSettings);
+            }
+        };
+        updateSettings();
+    }, [currentSynthSettings]);
 
     // Sync arpeggiator settings with the audio player.
     useEffect(() => {
         if (player.current) {
             player.current.setArpeggiator(isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats);
-            player.current.setProgression(progression); // Re-send progression to rebuild part with arp logic.
+            // Re-send the currently playing progression to rebuild the part with/without arpeggiator logic.
+            if (playbackState === 'playing') {
+                const fullSongProgression = songStructure.flatMap(part => 
+                    (progressions[part.progressionId] || []).map(chord => ({
+                        ...chord,
+                        songPartInstanceId: part.id
+                    }))
+                );
+                player.current.setProgression(fullSongProgression);
+            }
         }
-    }, [isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, progression]);
+    }, [isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, songStructure, progressions, playbackState]);
     
     /**
-     * Toggles the master playback of the chord progression.
+     * A centralized function to stop all playback.
+     */
+    const handleStop = useCallback(() => {
+        if (!player.current) return;
+        player.current.stop();
+        setPlaybackState('stopped');
+        setCurrentlyPlayingChordId(null);
+        setCurrentlyPlayingSongPartInstanceId(null);
+    }, []);
+
+    /**
+     * Toggles playback of the full song structure.
      */
     const handlePlayToggle = useCallback(async () => {
-        if (!player.current || progression.length === 0) return;
-        // Start the audio context if it's not running (required by browsers).
-        await player.current.start(); 
-        if (isPlaying) {
-            player.current.stop();
-            setIsPlaying(false);
-            setCurrentlyPlayingChordId(null);
-        } else {
-            player.current.play();
-            setIsPlaying(true);
+        if (isSynthLoading || !player.current || songStructure.length === 0) return;
+        
+        if (playbackState === 'playing') {
+            handleStop();
+            return;
         }
-    }, [isPlaying, progression.length]);
-    
+
+        const fullSongProgressionWithContext = songStructure.flatMap(part => {
+            const progressionChords = progressions[part.progressionId] || [];
+            return progressionChords.map(chord => ({
+                ...chord,
+                songPartInstanceId: part.id
+            }));
+        });
+        
+        if (fullSongProgressionWithContext.length === 0) return;
+
+        player.current.setProgression(fullSongProgressionWithContext);
+        await player.current.start();
+        player.current.play();
+        setPlaybackState('playing');
+    }, [playbackState, songStructure, progressions, handleStop, isSynthLoading]);
+
     // --- Event Handlers for UI elements ---
     const handleTempoChange = useCallback((newTempo) => { setTempo(newTempo); }, []);
     const handleSynthChange = useCallback((newSynth) => { setSynthType(newSynth); }, []);
@@ -284,14 +354,22 @@ const Composer = ({ screenWidth, screenHeight }) => {
         player.current?.setLoop(newIsLooping);
     }, [isLooping]);
 
-    const handleClearProgression = useCallback(() => { setProgressionWithHistory([]); }, [setProgressionWithHistory]);
+    const handleClearProgression = useCallback(() => {
+        handleStop(); // Good practice to stop playback
+        setProgressionsWithHistory(currents => ({
+            ...currents,
+            [activeProgressionId]: []
+        }));
+        setSelectedChordId(null);
+    }, [activeProgressionId, setProgressionsWithHistory, handleStop]);
 
     /**
      * Generates new chords based on context. If the progression is empty, it creates a full random
      * progression. If not, it intelligently suggests and appends 4 new chords.
      */
     const handleFeelLucky = useCallback(() => {
-        if (progression.length === 0) {
+        const currentProgression = progressions[activeProgressionId] || [];
+        if (currentProgression.length === 0) {
             // Generate a full new progression from scratch.
             const newTempo = Math.floor(Math.random() * (160 - 80 + 1)) + 80;
             const newKey = rootNotes[Math.floor(Math.random() * rootNotes.length)];
@@ -307,12 +385,12 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 setTempo(newTempo);
                 setMusicalKey(newKey);
                 setMusicalMode(newMode);
-                setProgressionWithHistory(newChords);
+                setProgressionsWithHistory(currents => ({ ...currents, [activeProgressionId]: newChords }));
             }
         } else {
             // Append 4 new chords based on the last chord in the progression.
             const generatedChords = [];
-            let currentContextChord = progression[progression.length - 1];
+            let currentContextChord = currentProgression[currentProgression.length - 1];
 
             for (let i = 0; i < 4; i++) {
                 if (!currentContextChord || currentContextChord.notes.length === 0) break;
@@ -336,24 +414,24 @@ const Composer = ({ screenWidth, screenHeight }) => {
             }
 
             if (generatedChords.length > 0) {
-                setProgressionWithHistory(current => [...current, ...generatedChords]);
+                setProgressionsWithHistory(currents => ({
+                    ...currents,
+                    [activeProgressionId]: [...currents[activeProgressionId], ...generatedChords]
+                }));
             }
         }
-    }, [progression, musicalKey, musicalMode, setProgressionWithHistory]);
+    }, [progressions, activeProgressionId, musicalKey, musicalMode, setProgressionsWithHistory]);
 
     const handleRemoveChord = useCallback((idToRemove) => {
-        setProgressionWithHistory(currentProgression => 
-            currentProgression.filter(chord => chord.id !== idToRemove)
-        );
+        setProgressionsWithHistory(currents => ({
+            ...currents,
+            [activeProgressionId]: currents[activeProgressionId].filter(chord => chord.id !== idToRemove)
+        }));
+
         if (currentlyPlayingChordId === idToRemove) {
             setCurrentlyPlayingChordId(null);
         }
-        // If the last chord is removed while playing, stop playback.
-        if (progression.length === 1 && progression[0].id === idToRemove && isPlaying) {
-            player.current?.stop();
-            setIsPlaying(false);
-        }
-    }, [currentlyPlayingChordId, isPlaying, progression.length, setProgressionWithHistory]);
+    }, [currentlyPlayingChordId, activeProgressionId, setProgressionsWithHistory, handleStop]);
 
     const handleEditChord = useCallback((chord) => {
         setEditingChord(chord || { id: crypto.randomUUID(), notes: [] });
@@ -371,22 +449,29 @@ const Composer = ({ screenWidth, screenHeight }) => {
     }, []);
 
     const handleSaveChord = useCallback((savedChord) => {
-        setProgressionWithHistory(currentProgression => {
-            const existingIndex = currentProgression.findIndex(c => c.id === editingChord?.id);
+        setProgressionsWithHistory(currents => {
+            const currentProg = currents[activeProgressionId] || [];
+            const existingIndex = currentProg.findIndex(c => c.id === editingChord?.id);
+            let newProg;
             if (existingIndex > -1) {
                 // If editing an existing chord, replace it in the array.
-                const newProgression = [...currentProgression];
-                newProgression[existingIndex] = { ...savedChord, id: editingChord.id };
-                return newProgression;
+                newProg = [...currentProg];
+                newProg[existingIndex] = { ...savedChord, id: editingChord.id };
             } else {
                 // If adding a new chord, append it.
-                return [...currentProgression, { ...savedChord, id: editingChord.id }];
+                newProg = [...currentProg, { ...savedChord, id: editingChord.id }];
             }
+            return { ...currents, [activeProgressionId]: newProg };
         });
         handleCloseModal();
-    }, [editingChord, handleCloseModal, setProgressionWithHistory]);
+    }, [editingChord, handleCloseModal, activeProgressionId, setProgressionsWithHistory]);
 
-    const handleReorderProgression = useCallback((newProgression) => { setProgressionWithHistory(newProgression); }, [setProgressionWithHistory]);
+    const handleReorderProgression = useCallback((newProgression) => { 
+        setProgressionsWithHistory(currents => ({
+            ...currents,
+            [activeProgressionId]: newProgression
+        }));
+    }, [activeProgressionId, setProgressionsWithHistory]);
 
     const handleAddChords = useCallback((chordNames) => {
         const newChords = chordNames.map(name => ({
@@ -394,78 +479,140 @@ const Composer = ({ screenWidth, screenHeight }) => {
             notes: getChordNotesWithOctaves(name, 4),
             duration: 4,
         }));
-        setProgressionWithHistory(currentProgression => {
+        setProgressionsWithHistory(currents => {
+            const currentProg = currents[activeProgressionId] || [];
             // If a chord is selected, insert the new chords after it.
             if (selectedChordId) {
-                const selectedIndex = currentProgression.findIndex(c => c.id === selectedChordId);
+                const selectedIndex = currentProg.findIndex(c => c.id === selectedChordId);
                 if (selectedIndex > -1) {
-                    const newProgression = [...currentProgression];
+                    const newProgression = [...currentProg];
                     newProgression.splice(selectedIndex + 1, 0, ...newChords);
-                    return newProgression;
+                    return { ...currents, [activeProgressionId]: newProgression };
                 }
             }
             // Otherwise, append them to the end.
-            return [...currentProgression, ...newChords];
+            return { ...currents, [activeProgressionId]: [...currentProg, ...newChords] };
         });
-    }, [selectedChordId, setProgressionWithHistory]);
+    }, [selectedChordId, activeProgressionId, setProgressionsWithHistory]);
 
     // This handler is called from the interactive note visualizer to update a chord's notes directly.
     const handleChordNotesUpdate = useCallback((chordId, newNotes) => {
-        setProgressionWithHistory(currentProgression => {
-            const index = currentProgression.findIndex(c => c.id === chordId);
-            if (index === -1) return currentProgression;
-            const newProgression = [...currentProgression];
+        setProgressionsWithHistory(currents => {
+            const currentProg = currents[activeProgressionId] || [];
+            const index = currentProg.findIndex(c => c.id === chordId);
+            if (index === -1) return currents;
+            const newProgression = [...currentProg];
             newProgression[index] = { ...newProgression[index], notes: newNotes };
-            return newProgression;
+            return { ...currents, [activeProgressionId]: newProgression };
         });
-    }, [setProgressionWithHistory]);
+    }, [activeProgressionId, setProgressionsWithHistory]);
 
     // Handlers for changing a chord's voicing (inversions, permutations).
     const handleNextInvertChord = useCallback((chordId) => {
-        setProgressionWithHistory(currentProgression => {
-            const index = currentProgression.findIndex(c => c.id === chordId);
-            if (index === -1) return currentProgression;
-            const chordToInvert = currentProgression[index];
+        setProgressionsWithHistory(currents => {
+            const currentProg = currents[activeProgressionId] || [];
+            const index = currentProg.findIndex(c => c.id === chordId);
+            if (index === -1) return currents;
+            const chordToInvert = currentProg[index];
             const newNotes = getNextInversion(chordToInvert.notes);
-            const newProgression = [...currentProgression];
+            const newProgression = [...currentProg];
             newProgression[index] = { ...chordToInvert, notes: newNotes };
-            return newProgression;
+            return { ...currents, [activeProgressionId]: newProgression };
         });
-    }, [setProgressionWithHistory]);
+    }, [activeProgressionId, setProgressionsWithHistory]);
 
     const handlePreviousInvertChord = useCallback((chordId) => {
-        setProgressionWithHistory(currentProgression => {
-            const index = currentProgression.findIndex(c => c.id === chordId);
-            if (index === -1) return currentProgression;
-            const chordToInvert = currentProgression[index];
+        setProgressionsWithHistory(currents => {
+            const currentProg = currents[activeProgressionId] || [];
+            const index = currentProg.findIndex(c => c.id === chordId);
+            if (index === -1) return currents;
+            const chordToInvert = currentProg[index];
             const newNotes = getPreviousInversion(chordToInvert.notes);
-            const newProgression = [...currentProgression];
+            const newProgression = [...currentProg];
             newProgression[index] = { ...chordToInvert, notes: newNotes };
-            return newProgression;
+            return { ...currents, [activeProgressionId]: newProgression };
         });
-    }, [setProgressionWithHistory]);
+    }, [activeProgressionId, setProgressionsWithHistory]);
 
 
     const handlePermuteChord = useCallback((chordId) => {
-        setProgressionWithHistory(currentProgression => {
-            const index = currentProgression.findIndex(c => c.id === chordId);
-            if (index === -1) return currentProgression;
-            const chordToPermute = currentProgression[index];
+        setProgressionsWithHistory(currents => {
+            const currentProg = currents[activeProgressionId] || [];
+            const index = currentProg.findIndex(c => c.id === chordId);
+            if (index === -1) return currents;
+            const chordToPermute = currentProg[index];
             const newNotes = getPermutedVoicing(chordToPermute.notes);
-            const newProgression = [...currentProgression];
+            const newProgression = [...currentProg];
             newProgression[index] = { ...chordToPermute, notes: newNotes };
-            return newProgression;
+            return { ...currents, [activeProgressionId]: newProgression };
         });
-    }, [setProgressionWithHistory]);
+    }, [activeProgressionId, setProgressionsWithHistory]);
 
     const suggestionContextChord = useMemo(() => {
-        const chord = selectionContext || (progression.length > 0 ? progression[progression.length - 1] : null)
+        const chord = selectionContext || (activeProgression.length > 0 ? activeProgression[activeProgression.length - 1] : null)
         if (!chord) return null;
         return {
             name: detectChordFromNotes(chord.notes),
             notes: chord.notes,
         }
-    }, [selectionContext, progression]);
+    }, [selectionContext, activeProgression]);
+
+    // --- Song Structure Handlers ---
+    const handleAddNewProgression = useCallback(() => {
+        const existingLetters = Object.keys(progressions);
+        let nextLetterCode = 65; // Start with 'A'
+        while (existingLetters.includes(String.fromCharCode(nextLetterCode))) {
+            nextLetterCode++;
+        }
+        const nextLetter = String.fromCharCode(nextLetterCode);
+        
+        setProgressionsWithHistory(currents => ({
+            ...currents,
+            [nextLetter]: []
+        }));
+        setActiveProgressionId(nextLetter);
+    }, [progressions, setProgressionsWithHistory]);
+    
+    const handleDuplicateProgression = useCallback(() => {
+        const currentProgression = progressions[activeProgressionId];
+        if (!currentProgression) return;
+
+        const existingLetters = Object.keys(progressions);
+        let nextLetterCode = 65; // 'A'
+        while (existingLetters.includes(String.fromCharCode(nextLetterCode))) {
+            nextLetterCode++;
+        }
+        const nextLetter = String.fromCharCode(nextLetterCode);
+        
+        const newChords = currentProgression.map(chord => ({
+            ...chord,
+            id: crypto.randomUUID() 
+        }));
+
+        setProgressionsWithHistory(currents => ({
+            ...currents,
+            [nextLetter]: newChords
+        }));
+        setActiveProgressionId(nextLetter);
+    }, [progressions, activeProgressionId, setProgressionsWithHistory]);
+
+    const handleDeleteProgression = useCallback((idToDelete: string) => {
+        const currentProgressionIds = Object.keys(progressions);
+        if (currentProgressionIds.length <= 1) {
+            alert("Cannot delete the last song part.");
+            return;
+        }
+
+        const newProgressions = { ...progressions };
+        delete newProgressions[idToDelete];
+        
+        setProgressionsWithHistory(newProgressions);
+        setSongStructure(prev => prev.filter(part => part.progressionId !== idToDelete));
+    
+        if (activeProgressionId === idToDelete) {
+            setActiveProgressionId(Object.keys(newProgressions)[0] || '');
+        }
+    }, [progressions, activeProgressionId, setProgressionsWithHistory]);
 
     // --- Import / Export Handlers ---
 
@@ -474,8 +621,9 @@ const Composer = ({ screenWidth, screenHeight }) => {
      */
     const handleExport = useCallback(() => {
         const sessionData = {
-            version: 1,
-            progression,
+            version: 2,
+            progressions,
+            songStructure,
             tempo,
             synthType,
             isLooping,
@@ -496,6 +644,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 FMSynth: fmSettings,
                 AMSynth: amSettings,
                 Synth: basicSynthSettings,
+                SoundFont: soundFontSettings,
             }
         };
 
@@ -510,10 +659,10 @@ const Composer = ({ screenWidth, screenHeight }) => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }, [
-        progression, tempo, synthType, isLooping, masterGain, reverbWet, reverbTime,
+        progressions, songStructure, tempo, synthType, isLooping, masterGain, reverbWet, reverbTime,
         isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, musicalKey, musicalMode,
         rhodesSettings, moogLeadSettings, moogBassSettings, vcs3DroneSettings, vcs3FxSettings,
-        fmSettings, amSettings, basicSynthSettings
+        fmSettings, amSettings, basicSynthSettings, soundFontSettings
     ]);
     
     /**
@@ -525,9 +674,14 @@ const Composer = ({ screenWidth, screenHeight }) => {
         track.name = "Harmonicizer Progression";
         midi.header.setTempo(tempo);
     
+        let progressionToExport = songStructure.flatMap(part => progressions[part.progressionId] || []);
+        if (progressionToExport.length === 0) {
+            progressionToExport = activeProgression;
+        }
+
         let currentTime = 0; // Time in seconds
     
-        for (const chord of progression) {
+        for (const chord of progressionToExport) {
             const chordDurationInSeconds = (60 / tempo) * chord.duration;
             const notes = chord.notes;
     
@@ -536,7 +690,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     const arpeggioTimingAsSeconds = Tone.Time(arpeggiatorTiming).toSeconds();
                     if (arpeggioTimingAsSeconds > 0) {
                         const numNotesInArp = Math.floor(chordDurationInSeconds / arpeggioTimingAsSeconds);
-                        // Make arpeggiated notes slightly staccato for clarity
                         const finalNoteDuration = Math.min(arpeggioTimingAsSeconds * 0.9, 0.5); 
                         
                         for (let i = 0; i < numNotesInArp; i++) {
@@ -550,7 +703,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
                         }
                     }
                 } else {
-                    // Block chord - add each note individually for true polyphony
                     notes.forEach(note => {
                         track.addNote({
                             name: note,
@@ -573,7 +725,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    }, [progression, tempo, isArpeggiatorActive, arpeggiatorTiming]);
+    }, [progressions, songStructure, activeProgression, tempo, isArpeggiatorActive, arpeggiatorTiming]);
 
     /**
      * Opens the file dialog by programmatically clicking the hidden file input.
@@ -597,14 +749,36 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 const importedData = JSON.parse(result);
 
                 // --- Safely update state from imported data ---
-                if (importedData.progression && Array.isArray(importedData.progression)) {
-                    // Always generate new IDs to prevent key conflicts and state issues.
+                if (importedData.version === 2 && importedData.progressions && typeof importedData.progressions === 'object') {
+                    // v2 format with multiple progressions
+                     const progressionsWithNewIds = {};
+                    for (const key in importedData.progressions) {
+                        progressionsWithNewIds[key] = importedData.progressions[key].map(chord => ({
+                            ...chord,
+                            id: crypto.randomUUID()
+                        }));
+                    }
+                    setProgressionsWithHistory(progressionsWithNewIds);
+                    setActiveProgressionId(Object.keys(progressionsWithNewIds)[0] || 'A');
+                } else if (importedData.progression && Array.isArray(importedData.progression)) {
+                    // Legacy v1 format with single progression
                     const progressionWithNewIds = importedData.progression.map(chord => ({
                         ...chord,
                         id: crypto.randomUUID()
                     }));
-                    setProgressionWithHistory(progressionWithNewIds);
+                    setProgressionsWithHistory({ 'A': progressionWithNewIds });
+                    setActiveProgressionId('A');
                 }
+
+                if (importedData.songStructure && Array.isArray(importedData.songStructure)) {
+                    const structureWithNewIds = importedData.songStructure.map(part => ({
+                        ...part,
+                        id: crypto.randomUUID()
+                    }));
+                    setSongStructure(structureWithNewIds);
+                }
+
+
                 if (typeof importedData.tempo === 'number') setTempo(importedData.tempo);
                 if (typeof importedData.synthType === 'string') setSynthType(importedData.synthType);
                 if (typeof importedData.isLooping === 'boolean') setIsLooping(importedData.isLooping);
@@ -618,7 +792,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 if (typeof importedData.musicalMode === 'string') setMusicalMode(importedData.musicalMode);
 
                 if (importedData.synthSettings) {
-                    // Merge imported settings with current settings to prevent crashes if a property is missing.
                     setRhodesSettings(c => ({...c, ...importedData.synthSettings.Rhodes}));
                     setMoogLeadSettings(c => ({...c, ...importedData.synthSettings.MoogLead}));
                     setMoogBassSettings(c => ({...c, ...importedData.synthSettings.MoogBass}));
@@ -627,6 +800,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     setFmSettings(c => ({...c, ...importedData.synthSettings.FMSynth}));
                     setAmSettings(c => ({...c, ...importedData.synthSettings.AMSynth}));
                     setBasicSynthSettings(c => ({...c, ...importedData.synthSettings.Synth}));
+                    setSoundFontSettings(c => ({...c, ...importedData.synthSettings.SoundFont}));
                 }
 
             } catch (error) {
@@ -635,7 +809,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
             }
         };
         reader.readAsText(file);
-        // Reset file input value to allow importing the same file again if needed.
         event.target.value = '';
     };
 
@@ -672,36 +845,52 @@ const Composer = ({ screenWidth, screenHeight }) => {
             </CollapsibleSection>
 
             <CollapsibleSection title="Playback & Tempo" defaultOpen={true}>
-                <div className="playback-controls-container">
-                    <TransportControls 
-                        isPlaying={isPlaying}
-                        tempo={tempo}
-                        isLooping={isLooping}
-                        onPlayToggle={handlePlayToggle}
-                        onTempoChange={handleTempoChange}
-                        onLoopToggle={handleLoopToggle}
-                    />
-                    <div className="secondary-controls">
-                        <button className="control-button" aria-label="Undo last action" onClick={handleUndo} disabled={progressionHistory.length === 0} title="Undo">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
-                        </button>
-                        <button className="control-button clear-button" aria-label="Clear Progression" onClick={handleClearProgression} title="Clear All Chords">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                        </button>
-                        <button className="control-button lucky-button" aria-label="I feel lucky" onClick={handleFeelLucky} title="Generate Random Progression">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19,3H5C3.89,3 3,3.89 3,5V19C3,20.11 3.9,21 5,21H19C20.11,21 21,20.11 21,19V5C21,3.89 20.1,3 19,3M6,8.5C6,7.67 6.67,7 7.5,7S9,7.67 9,8.5C9,9.33 8.33,10 7.5,10S6,9.33 6,8.5M15,15.5C15,14.67 15.67,14 16.5,14S18,14.67 18,15.5C18,16.33 17.33,17 16.5,17S15,16.33 15,15.5M10.5,12C10.5,11.17 11.17,10.5 12,10.5S13.5,11.17 13.5,12C13.5,12.83 12.83,13.5 12,13.5S10.5,12.83 10.5,12M15,8.5C15,7.67 15.67,7 16.5,7S18,7.67 18,8.5C18,9.33 17.33,10 16.5,10S15,9.33 15,8.5M6,15.5C6,14.67 6.67,14 7.5,14S9,14.67 9,15.5C9,16.33 8.33,17 7.5,17S6,16.33 6,15.5Z"/></svg>
-                        </button>
-                        <KeySignature currentKey={musicalKey} currentMode={musicalMode} onKeyChange={setMusicalKey} onModeChange={setMusicalMode} rootNotes={rootNotes} modes={modes} />
-                        <button className={`control-button ${isNoteVisualizerVisible ? 'active' : ''}`} onClick={() => setIsNoteVisualizerVisible(prev => !prev)} title="Toggle Note Visualizer" aria-pressed={isNoteVisualizerVisible}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-8zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
-                        </button>
-                    </div>
-                </div>
+                <TransportControls 
+                    playbackState={playbackState}
+                    tempo={tempo}
+                    isLooping={isLooping}
+                    onPlayToggle={handlePlayToggle}
+                    onTempoChange={handleTempoChange}
+                    onLoopToggle={handleLoopToggle}
+                    playDisabled={isSynthLoading}
+                />
+                <SongStructure
+                    structure={songStructure}
+                    onStructureChange={setSongStructure}
+                    progressionIds={Object.keys(progressions)}
+                    currentlyPlayingPartId={playbackState === 'playing' ? currentlyPlayingSongPartInstanceId : null}
+                />
+            </CollapsibleSection>
+            
+            <CollapsibleSection title="Song Parts" defaultOpen={true}>
+                <ProgressionTabs
+                    progressionIds={Object.keys(progressions)}
+                    activeId={activeProgressionId}
+                    onSelect={setActiveProgressionId}
+                    onAdd={handleAddNewProgression}
+                    onDelete={handleDeleteProgression}
+                    onDuplicate={handleDuplicateProgression}
+                />
             </CollapsibleSection>
 
-            <CollapsibleSection title="Chord Progression" defaultOpen={true}>
+            <CollapsibleSection title={`Chord Progression (Part ${activeProgressionId})`} defaultOpen={true} key={activeProgressionId}>
+                <div className="progression-controls">
+                    <button className={`control-button ${isNoteVisualizerVisible ? 'active' : ''}`} onClick={() => setIsNoteVisualizerVisible(prev => !prev)} title="Toggle Note Visualizer" aria-pressed={isNoteVisualizerVisible}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-8zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+                    </button>
+                    <KeySignature currentKey={musicalKey} currentMode={musicalMode} onKeyChange={setMusicalKey} onModeChange={setMusicalMode} rootNotes={rootNotes} modes={modes} />
+                    <button className="control-button" aria-label="Undo last action" onClick={handleUndo} disabled={progressionsHistory.length === 0} title="Undo">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+                    </button>
+                    <button className="control-button clear-button" aria-label="Clear Part" onClick={handleClearProgression} title="Clear current progression">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                    <button className="control-button lucky-button" aria-label="I feel lucky" onClick={handleFeelLucky} title="Generate Random Progression">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19,3H5C3.89,3 3,3.89 3,5V19C3,20.11 3.9,21 5,21H19C20.11,21 21,20.11 21,19V5C21,3.89 20.1,3 19,3M6,8.5C6,7.67 6.67,7 7.5,7S9,7.67 9,8.5C9,9.33 8.33,10 7.5,10S6,9.33 6,8.5M15,15.5C15,14.67 15.67,14 16.5,14S18,14.67 18,15.5C18,16.33 17.33,17 16.5,17S15,16.33 15,15.5M10.5,12C10.5,11.17 11.17,10.5 12,10.5S13.5,11.17 13.5,12C13.5,12.83 12.83,13.5 12,13.5S10.5,12.83 10.5,12M15,8.5C15,7.67 15.67,7 16.5,7S18,7.67 18,8.5C18,9.33 17.33,10 16.5,10S15,9.33 15,8.5M6,15.5C6,14.67 6.67,14 7.5,14S9,14.67 9,15.5C9,16.33 8.33,17 7.5,17S6,16.33 6,15.5Z"/></svg>
+                    </button>
+                </div>
                 <ChordGrid 
-                    progression={progression}
+                    progression={activeProgression}
                     onEditChord={handleEditChord}
                     onSelectChord={handleSelectChord}
                     selectedChordId={selectedChordId}
@@ -752,6 +941,8 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     fmSettings={fmSettings} onFmSettingsChange={setFmSettings}
                     amSettings={amSettings} onAmSettingsChange={setAmSettings}
                     basicSynthSettings={basicSynthSettings} onBasicSynthSettingsChange={setBasicSynthSettings}
+                    soundFontSettings={soundFontSettings} onSoundFontSettingsChange={setSoundFontSettings}
+                    soundfonts={soundfonts}
                     screenWidth={screenWidth}
                 />
             </CollapsibleSection>

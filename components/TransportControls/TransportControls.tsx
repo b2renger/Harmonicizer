@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import './TransportControls.css';
 
@@ -6,12 +7,13 @@ import './TransportControls.css';
  * Interface for TransportControls props.
  */
 interface TransportControlsProps {
-    isPlaying: boolean;
+    playbackState: 'stopped' | 'playing';
     tempo: number;
     isLooping: boolean;
     onPlayToggle: () => void;
     onTempoChange: (newTempo: number) => void;
     onLoopToggle: () => void;
+    playDisabled?: boolean;
 }
 
 /**
@@ -20,18 +22,26 @@ interface TransportControlsProps {
  * @param {TransportControlsProps} props - The props for the component.
  */
 const TransportControls: React.FC<TransportControlsProps> = ({
-    isPlaying,
+    playbackState,
     tempo,
     isLooping,
     onPlayToggle,
     onTempoChange,
     onLoopToggle,
+    playDisabled = false,
 }) => {
+    const playButtonTitle = playDisabled ? "Loading synth..." : (playbackState === 'playing' ? "Pause" : "Play Song");
     return (
         <div className="transport-controls">
             <div className="playback-controls">
-                <button className="control-button" aria-label={isPlaying ? "Pause" : "Play"} onClick={onPlayToggle}>
-                    {isPlaying ? (
+                <button 
+                    className="control-button" 
+                    title={playButtonTitle} 
+                    aria-label={playButtonTitle} 
+                    onClick={onPlayToggle}
+                    disabled={playDisabled}
+                >
+                    {playbackState === 'playing' ? (
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                             <path d="M6 19H10V5H6V19ZM14 5V19H18V5H14Z"/>
                         </svg>
@@ -41,7 +51,7 @@ const TransportControls: React.FC<TransportControlsProps> = ({
                         </svg>
                     )}
                 </button>
-                 <button className={`control-button ${isLooping ? 'active' : ''}`} aria-label={isLooping ? "Disable Loop" : "Enable Loop"} onClick={onLoopToggle}>
+                 <button className={`control-button ${isLooping ? 'active' : ''}`} title={isLooping ? "Disable Loop" : "Enable Loop"} aria-label={isLooping ? "Disable Loop" : "Enable Loop"} onClick={onLoopToggle}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M17 1l4 4-4 4"/>
                         <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
