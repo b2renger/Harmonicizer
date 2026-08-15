@@ -1,6 +1,6 @@
 
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, useSyncExternalStore } from 'react';
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import { Note } from 'tonal';
@@ -20,7 +20,9 @@ import { generateRandomProgression, getDiatonicChords } from '../../theory/harmo
 import './Composer.css';
 import { rootNotes, modes, detectChordFromNotes, getChordNotesWithOctaves, getNextInversion, getPreviousInversion, getPermutedVoicing } from '../../theory/chords.js';
 import { voiceStoredProgression } from '../../theory/voicing/adapt.js';
-import { DEFAULT_VOICING_PARAMS } from '../../theory/voicing/types.js';
+import ParameterDials from '../../components/ParameterDials/ParameterDials.tsx';
+import { paramStore, type ParamName } from '../../params/store.js';
+import { paramsToVoicing } from '../../params/toVoicing.js';
 
 const MAX_HISTORY_SIZE = 30;
 
@@ -151,11 +153,21 @@ const Composer = ({ screenWidth, screenHeight }) => {
 
     const activeProgression = useMemo(() => progressions[activeProgressionId] || [], [progressions, activeProgressionId]);
 
+    // The live parameter bus lives outside React so an external controller (MIDI, OSC)
+    // can write to it directly. useSyncExternalStore keeps the UI in step.
+    const liveParams = useSyncExternalStore(paramStore.subscribe, paramStore.get, paramStore.get);
+    const voicingParams = useMemo(() => paramsToVoicing(liveParams), [liveParams]);
+
+    const handleParamChange = useCallback((name: ParamName, value: number) => {
+        paramStore.set(name, value);
+    }, []);
+    const handleParamReset = useCallback(() => { paramStore.reset(); }, []);
+
     // The progression as heard and shown: re-voiced when auto voice leading is on.
     // Editing handlers always work against `progressions` state, never this copy.
     const displayedProgression = useMemo(
-        () => autoVoiceLeading ? voiceStoredProgression(activeProgression, DEFAULT_VOICING_PARAMS) : activeProgression,
-        [activeProgression, autoVoiceLeading],
+        () => autoVoiceLeading ? voiceStoredProgression(activeProgression, voicingParams) : activeProgression,
+        [activeProgression, autoVoiceLeading, voicingParams],
     );
 
     /** Flattens the song structure into the chord list the player schedules. */
@@ -166,8 +178,8 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 songPartInstanceId: part.id,
             }))
         );
-        return autoVoiceLeading ? voiceStoredProgression(flat, DEFAULT_VOICING_PARAMS) : flat;
-    }, [songStructure, progressions, autoVoiceLeading]);
+        return autoVoiceLeading ? voiceStoredProgression(flat, voicingParams) : flat;
+    }, [songStructure, progressions, autoVoiceLeading, voicingParams]);
 
     // Memoizes the analysis of the entire progression. Re-calculates only when the progression or key changes.
     const analysisResults = useMemo(() => analyzeProgression(activeProgression, musicalKey, musicalMode), [activeProgression, musicalKey, musicalMode]);
@@ -646,6 +658,8 @@ const Composer = ({ screenWidth, screenHeight }) => {
             arpeggiatorRepeats,
             musicalKey,
             musicalMode,
+            autoVoiceLeading,
+            params: liveParams,
             synthSettings: {
                 Rhodes: rhodesSettings,
                 MoogLead: moogLeadSettings,
@@ -672,6 +686,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
     }, [
         progressions, songStructure, tempo, synthType, isLooping, masterGain, reverbWet, reverbTime,
         isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, musicalKey, musicalMode,
+        autoVoiceLeading, liveParams,
         rhodesSettings, moogLeadSettings, moogBassSettings, vcs3DroneSettings, vcs3FxSettings,
         fmSettings, amSettings, basicSynthSettings, soundFontSettings
     ]);
@@ -801,6 +816,9 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 if (typeof importedData.arpeggiatorRepeats === 'number') setArpeggiatorRepeats(importedData.arpeggiatorRepeats);
                 if (typeof importedData.musicalKey === 'string') setMusicalKey(importedData.musicalKey);
                 if (typeof importedData.musicalMode === 'string') setMusicalMode(importedData.musicalMode);
+                if (typeof importedData.autoVoiceLeading === 'boolean') setAutoVoiceLeading(importedData.autoVoiceLeading);
+                // clampParams inside the store discards anything out of range or unknown.
+                if (importedData.params) paramStore.setAll(importedData.params);
 
                 if (importedData.synthSettings) {
                     setRhodesSettings(c => ({...c, ...importedData.synthSettings.Rhodes}));
@@ -927,6 +945,15 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 />
             </CollapsibleSection>
             
+            <CollapsibleSection title="Voicing" defaultOpen={false}>
+                <ParameterDials
+                    params={liveParams}
+                    onChange={handleParamChange}
+                    onReset={handleParamReset}
+                    isActive={autoVoiceLeading}
+                />
+            </CollapsibleSection>
+
             <CollapsibleSection title="Harmonic Analysis" defaultOpen={false}>
                 <ProgressionAnalyzer 
                     analysis={analysisResults} 

@@ -1,0 +1,32 @@
+.parameter-dials {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.parameter-dials-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.parameter-dials-hint {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.7;
+    line-height: 1.4;
+}
+
+.parameter-dials.inactive .parameter-dials-row {
+    opacity: 0.55;
+}
+
+.parameter-dials-reset {
+    align-self: flex-end;
+    width: auto;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.85rem;
+}
