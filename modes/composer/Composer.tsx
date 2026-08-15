@@ -21,6 +21,9 @@ import './Composer.css';
 import { rootNotes, modes, detectChordFromNotes, getChordNotesWithOctaves, getNextInversion, getPreviousInversion, getPermutedVoicing } from '../../theory/chords.js';
 import { voiceStoredProgression } from '../../theory/voicing/adapt.js';
 import ParameterDials from '../../components/ParameterDials/ParameterDials.tsx';
+import BrickPalette from '../../components/BrickPalette/BrickPalette.tsx';
+import { expandBrick } from '../../theory/bricks/expand.js';
+import type { Brick } from '../../theory/bricks/types.js';
 import { paramStore, type ParamName } from '../../params/store.js';
 import { paramsToVoicing } from '../../params/toVoicing.js';
 
@@ -518,6 +521,34 @@ const Composer = ({ screenWidth, screenHeight }) => {
         });
     }, [selectedChordId, activeProgressionId, setProgressionsWithHistory]);
 
+    /**
+     * Expands a brick into the current key and inserts its chords, keeping each chord's
+     * own duration rather than the flat 4 beats handleAddChords uses.
+     */
+    const handleAddBrick = useCallback((brick: Brick) => {
+        const expanded = expandBrick(brick, musicalKey, brick.defaultBeats);
+        if (expanded.length === 0) return;
+
+        const newChords = expanded.map(({ symbol, durationBeats }) => ({
+            id: crypto.randomUUID(),
+            notes: getChordNotesWithOctaves(symbol, 4),
+            duration: Math.max(1, Math.round(durationBeats)),
+        }));
+
+        setProgressionsWithHistory(currents => {
+            const currentProg = currents[activeProgressionId] || [];
+            if (selectedChordId) {
+                const selectedIndex = currentProg.findIndex(c => c.id === selectedChordId);
+                if (selectedIndex > -1) {
+                    const next = [...currentProg];
+                    next.splice(selectedIndex + 1, 0, ...newChords);
+                    return { ...currents, [activeProgressionId]: next };
+                }
+            }
+            return { ...currents, [activeProgressionId]: [...currentProg, ...newChords] };
+        });
+    }, [musicalKey, selectedChordId, activeProgressionId, setProgressionsWithHistory]);
+
     // This handler is called from the interactive note visualizer to update a chord's notes directly.
     const handleChordNotesUpdate = useCallback((chordId, newNotes) => {
         setProgressionsWithHistory(currents => {
@@ -945,6 +976,14 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 />
             </CollapsibleSection>
             
+            <CollapsibleSection title="Harmonic Bricks" defaultOpen={false}>
+                <BrickPalette
+                    musicalKey={musicalKey}
+                    musicalMode={musicalMode}
+                    onAddBrick={handleAddBrick}
+                />
+            </CollapsibleSection>
+
             <CollapsibleSection title="Voicing" defaultOpen={false}>
                 <ParameterDials
                     params={liveParams}

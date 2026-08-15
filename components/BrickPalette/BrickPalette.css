@@ -1,0 +1,77 @@
+.brick-palette-intro {
+    margin: 0 0 0.85rem;
+    font-size: 0.88rem;
+    opacity: 0.75;
+}
+
+.brick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 0.7rem;
+}
+
+.brick-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.7rem 0.8rem;
+    text-align: left;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.brick-card:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.brick-card:active {
+    transform: translateY(1px);
+}
+
+.brick-card.other-mode {
+    opacity: 0.62;
+    border-style: dashed;
+}
+
+.brick-card-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.brick-card-name {
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.brick-card-type {
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+
+.brick-card-chords {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9rem;
+    color: #4facfe;
+}
+
+.brick-card-description {
+    font-size: 0.78rem;
+    line-height: 1.35;
+    opacity: 0.72;
+}
+
+.brick-card-borrowed {
+    font-size: 0.72rem;
+    font-style: italic;
+    opacity: 0.6;
+}
