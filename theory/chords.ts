@@ -57,10 +57,37 @@ export const wrapNotesToRange = (notes: string[]): string[] => {
 
 
 /**
+ * Parses a chord symbol, including slash chords.
+ *
+ * Tonal 4.10's `Chord.get` returns empty for any slash form — `Chord.get('C/E')` is
+ * empty — even though `Chord.detect` happily *produces* those names. That mismatch meant
+ * every inversion in the app displayed as a raw note list ("E-G-B-C" instead of
+ * "Cmaj7/E"). This splits the bass off and reattaches it.
+ *
+ * @param {string} name - A chord symbol, e.g. 'Cmaj7' or 'Cmaj7/E'.
+ * @returns A Tonal chord object; `root` holds the bass note for slash chords.
+ */
+export const getChordInfo = (name: string) => {
+    const direct = Chord.get(name);
+    if (!direct.empty) return direct;
+
+    const slashAt = name.indexOf('/');
+    if (slashAt > 0) {
+        const base = Chord.get(name.slice(0, slashAt));
+        const bass = name.slice(slashAt + 1);
+        const bassChroma = Note.chroma(bass);
+        if (!base.empty && bassChroma !== undefined && bassChroma !== null) {
+            return { ...base, root: bass, symbol: `${base.symbol}/${bass}` };
+        }
+    }
+    return direct;
+};
+
+/**
  * Detects the most likely chord from a set of notes, ensuring the result is valid.
  * It prioritizes chords that Tonal.js can fully parse.
  * @param {string[]} notes - An array of note names (e.g., ['C4', 'E4', 'G4']).
- * @returns {string | null} The detected chord symbol (e.g., 'Cmaj7') or null if no valid chord is detected.
+ * @returns {string | null} The detected chord symbol (e.g., 'Cmaj7', 'Cmaj7/E') or null.
  */
 export const detectChordFromNotes = (notes) => {
     if (!notes || notes.length < 2) {
@@ -75,18 +102,40 @@ export const detectChordFromNotes = (notes) => {
         return null;
     }
 
-    // Find the first detected chord name that Tonal can fully parse.
-    // This ensures compatibility with other functions that rely on `Chord.get`.
-    for (const chordName of detectedChords) {
-        const chordInfo = Chord.get(chordName);
-        if (!chordInfo.empty && chordInfo.tonic) {
-            // It's a valid, parsable chord. Return its standardized symbol.
-            return chordInfo.symbol;
+    // Tonal lists every reading, most-literal first, which is not the most musical one:
+    // E-G-C comes back as ["Em#5", "C/E"], and a first-inversion C major should not
+    // display as "Em#5". Rank the parsable readings by how ordinary the chord is.
+    const parsable = detectedChords
+        .map(name => getChordInfo(name))
+        .filter(info => !info.empty && info.tonic);
+
+    if (parsable.length === 0) return null;
+
+    let best = parsable[0];
+    let bestRank = qualityRank(best);
+    for (const info of parsable.slice(1)) {
+        const rank = qualityRank(info);
+        if (rank < bestRank) {
+            best = info;
+            bestRank = rank;
         }
     }
+    return canonicalChordSymbol(best);
+};
 
-    // If no detected chords could be parsed, it's not a standard chord.
-    return null;
+/**
+ * How ordinary a chord quality is, lowest first. Used to choose between the competing
+ * readings Tonal offers for the same set of notes. Anything unlisted ranks last.
+ */
+const COMMON_QUALITIES = [
+    'M', 'm', 'maj7', 'm7', '7', '6', 'm6', 'm7b5', 'dim7', 'dim',
+    'sus4', 'sus2', 'aug', '9', 'm9', 'maj9', 'add9', '13', 'm11',
+];
+
+const qualityRank = (chordInfo): number => {
+    const alias = chordInfo.aliases?.[0] ?? '';
+    const index = COMMON_QUALITIES.indexOf(alias);
+    return index === -1 ? COMMON_QUALITIES.length : index;
 };
 
 /**
@@ -115,7 +164,7 @@ export const getAbbreviatedChordName = (chordName) => {
     if (!chordName || chordName === 'Rest') {
         return chordName;
     }
-    const chordInfo = Chord.get(chordName);
+    const chordInfo = getChordInfo(chordName);
     if (chordInfo.empty || !chordInfo.tonic) {
         return chordName; // Return original if not recognized
     }
@@ -158,7 +207,7 @@ export const getDisplayChordName = (chordName, octave) => {
     if (!chordName || chordName === 'Rest') {
         return "Rest";
     }
-    const chordInfo = Chord.get(chordName);
+    const chordInfo = getChordInfo(chordName);
     if (chordInfo.empty || !chordInfo.tonic) {
         return chordName;
     }
@@ -254,7 +303,7 @@ const getInversion = (notes, direction) => {
     }
 
     // --- Standard Inversion Logic ---
-    const chordInfo = Chord.get(detectedName);
+    const chordInfo = getChordInfo(detectedName);
     const rootPositionPitchClasses = chordInfo.notes;
     const currentBassPitchClass = Note.pitchClass(bassNote);
     
@@ -369,7 +418,7 @@ export const getPermutedVoicing = (notes) => {
 export const getChordNotesWithOctaves = (chordName, octave) => {
     if (!chordName || chordName === 'Rest') return [];
 
-    const chordInfo = Chord.get(chordName);
+    const chordInfo = getChordInfo(chordName);
     if (chordInfo.empty || !chordInfo.tonic) return [];
 
     // 1. Get root position notes to establish the base structure (e.g., Cmaj7 -> ['C', 'E', 'G', 'B'])

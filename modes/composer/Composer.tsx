@@ -19,6 +19,8 @@ import { analyzeProgression, getSuggestionsForChord, getHarmonicTheoryForChord }
 import { generateRandomProgression, getDiatonicChords } from '../../theory/harmony.js';
 import './Composer.css';
 import { rootNotes, modes, detectChordFromNotes, getChordNotesWithOctaves, getNextInversion, getPreviousInversion, getPermutedVoicing } from '../../theory/chords.js';
+import { voiceStoredProgression } from '../../theory/voicing/adapt.js';
+import { DEFAULT_VOICING_PARAMS } from '../../theory/voicing/types.js';
 
 const MAX_HISTORY_SIZE = 30;
 
@@ -135,6 +137,10 @@ const Composer = ({ screenWidth, screenHeight }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingChord, setEditingChord] = useState(null);
     const [isNoteVisualizerVisible, setIsNoteVisualizerVisible] = useState(false);
+    // Auto voice leading is a *derived* view of the progression, never written back to
+    // state, so hand-made voicings survive toggling it off again. Off by default so an
+    // existing session sounds exactly as it did before.
+    const [autoVoiceLeading, setAutoVoiceLeading] = useState(false);
     const [isSynthLoading, setIsSynthLoading] = useState(false);
 
     // Refs for audio engine and file input
@@ -144,6 +150,24 @@ const Composer = ({ screenWidth, screenHeight }) => {
     // --- DERIVED STATE & MEMOIZED COMPUTATIONS ---
 
     const activeProgression = useMemo(() => progressions[activeProgressionId] || [], [progressions, activeProgressionId]);
+
+    // The progression as heard and shown: re-voiced when auto voice leading is on.
+    // Editing handlers always work against `progressions` state, never this copy.
+    const displayedProgression = useMemo(
+        () => autoVoiceLeading ? voiceStoredProgression(activeProgression, DEFAULT_VOICING_PARAMS) : activeProgression,
+        [activeProgression, autoVoiceLeading],
+    );
+
+    /** Flattens the song structure into the chord list the player schedules. */
+    const buildSongProgression = useCallback(() => {
+        const flat = songStructure.flatMap(part =>
+            (progressions[part.progressionId] || []).map(chord => ({
+                ...chord,
+                songPartInstanceId: part.id,
+            }))
+        );
+        return autoVoiceLeading ? voiceStoredProgression(flat, DEFAULT_VOICING_PARAMS) : flat;
+    }, [songStructure, progressions, autoVoiceLeading]);
 
     // Memoizes the analysis of the entire progression. Re-calculates only when the progression or key changes.
     const analysisResults = useMemo(() => analyzeProgression(activeProgression, musicalKey, musicalMode), [activeProgression, musicalKey, musicalMode]);
@@ -296,16 +320,10 @@ const Composer = ({ screenWidth, screenHeight }) => {
             player.current.setArpeggiator(isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats);
             // Re-send the currently playing progression to rebuild the part with/without arpeggiator logic.
             if (playbackState === 'playing') {
-                const fullSongProgression = songStructure.flatMap(part => 
-                    (progressions[part.progressionId] || []).map(chord => ({
-                        ...chord,
-                        songPartInstanceId: part.id
-                    }))
-                );
-                player.current.setProgression(fullSongProgression);
+                player.current.setProgression(buildSongProgression());
             }
         }
-    }, [isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, songStructure, progressions, playbackState]);
+    }, [isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, playbackState, buildSongProgression]);
     
     /**
      * A centralized function to stop all playback.
@@ -329,21 +347,14 @@ const Composer = ({ screenWidth, screenHeight }) => {
             return;
         }
 
-        const fullSongProgressionWithContext = songStructure.flatMap(part => {
-            const progressionChords = progressions[part.progressionId] || [];
-            return progressionChords.map(chord => ({
-                ...chord,
-                songPartInstanceId: part.id
-            }));
-        });
-        
+        const fullSongProgressionWithContext = buildSongProgression();
         if (fullSongProgressionWithContext.length === 0) return;
 
         player.current.setProgression(fullSongProgressionWithContext);
         await player.current.start();
         player.current.play();
         setPlaybackState('playing');
-    }, [playbackState, songStructure, progressions, handleStop, isSynthLoading]);
+    }, [playbackState, songStructure, handleStop, isSynthLoading, buildSongProgression]);
 
     // --- Event Handlers for UI elements ---
     const handleTempoChange = useCallback((newTempo) => { setTempo(newTempo); }, []);
@@ -878,6 +889,15 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     <button className={`control-button ${isNoteVisualizerVisible ? 'active' : ''}`} onClick={() => setIsNoteVisualizerVisible(prev => !prev)} title="Toggle Note Visualizer" aria-pressed={isNoteVisualizerVisible}>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-8zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
                     </button>
+                    <button
+                        className={`control-button ${autoVoiceLeading ? 'active' : ''}`}
+                        onClick={() => setAutoVoiceLeading(prev => !prev)}
+                        title={autoVoiceLeading ? 'Auto voice leading: on' : 'Auto voice leading: off'}
+                        aria-label="Toggle automatic voice leading"
+                        aria-pressed={autoVoiceLeading}
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg"><path d="M3 17c4 0 4-4 8-4s4 4 8 4"/><path d="M3 11c4 0 4-4 8-4s4 4 8 4"/></svg>
+                    </button>
                     <KeySignature currentKey={musicalKey} currentMode={musicalMode} onKeyChange={setMusicalKey} onModeChange={setMusicalMode} rootNotes={rootNotes} modes={modes} />
                     <button className="control-button" aria-label="Undo last action" onClick={handleUndo} disabled={progressionsHistory.length === 0} title="Undo">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
@@ -890,7 +910,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     </button>
                 </div>
                 <ChordGrid 
-                    progression={activeProgression}
+                    progression={displayedProgression}
                     onEditChord={handleEditChord}
                     onSelectChord={handleSelectChord}
                     selectedChordId={selectedChordId}
