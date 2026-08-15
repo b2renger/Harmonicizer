@@ -111,32 +111,37 @@ Honest list. Nothing here is hidden behind a "coming soon".
 
 **Musical correctness**
 
-- **Roman numerals render as prose.** The diatonic chord chips read `Imajor seventh`,
-  `Vdominant seventh` instead of `Imaj7`, `V7`. Tonal returns `type: "major seventh"` where
-  [theory/harmony.ts](theory/harmony.ts#L80) expects a short alias like `maj7`.
-- **The dominant is minor in minor keys.** `getChordFromRomanNumeral` resolves a numeral to
-  a scale degree and then returns whatever `Mode.seventhChords` puts there — so `V` in C
-  minor yields `Gm7`, not `G7`. The numeral's own quality is ignored. The "Authentic
-  Cadence" suggestion therefore proposes `v → i`, and the accompanying text still promises
-  "the major V chord has a particularly strong pull".
-- **Everything is a seventh chord.** The same function can only ever return the diatonic
-  *seventh*. Plain triads are unreachable from the theory panel.
-- **Jazz suggestions never appear.** The tritone-sub and altered-dominant branch tests
-  `quality === 'Dominant'`, but Tonal reports `quality: "Major"` for `G7`. Dead code path.
-- **Secondary dominants ignore the mode.** V/V and V/vi are computed from the tonic alone,
-  so C minor is offered `A7` — a dominant of a chord that is not in the key.
-- **`vii°` in minor resolves to `Bb7`** (the subtonic), and `'iio'` in the suggestion table
-  is misspelled — it silently resolves to nothing.
-- **"I feel lucky" has two outcomes.** Only two 4-chord patterns exist in `COMMON_PATTERNS`,
-  and both start on the tonic.
+The theory engine's Roman-numeral handling was rewritten and is now covered by tests, so
+the defects previously listed here are fixed: numerals render as `Imaj7` / `V7` rather than
+prose, `V7` in a minor key is a genuine dominant, triads are reachable, secondary dominants
+follow the mode, and the tritone-sub suggestions that were unreachable dead code now fire.
+Numerals round-trip across all 12 keys and 7 modes.
+
+Two things to know about the conventions chosen:
+
+- **Minor counts degrees against harmonic minor.** `vii°7` is the leading-tone chord, and
+  the subtonic is written `bVII`. Natural minor would make `vii°7` resolve to a chord
+  nobody means by it.
+- **Numerals are explicit.** `V` is a triad, `V7` a dominant seventh, `Vmaj7` a major
+  seventh. Nothing infers a seventh for you.
+
+Still open:
+
+- **The generator is thin.** "I feel lucky" now draws on more, mode-appropriate patterns,
+  but it is still a lookup over a fixed table rather than a model. Replaced by the brick
+  grammar in step 3.
+- The suggestion and harmonic-function tables are interim scaffolding, split by mode
+  family. The seven modes differ in ways they do not model.
 
 **Accompaniment**
 
 - Chords play as **block chords**: every note struck at once, held for the full duration.
 - The arpeggiator cycles notes in voicing order at a fixed subdivision. There is no
   rhythmic pattern language, no bass line, no comping style.
-- **No voice leading.** Generated and inserted chords are always built in root position from
-  octave 4, so consecutive chords leap. Inversions exist, but only as manual buttons.
+- **Voice leading exists but is opt-in.** The "Auto voice leading" toggle in the
+  progression controls re-voices the progression by scored search, cutting movement by
+  roughly two thirds. It is a derived view — your hand-made voicings are never overwritten,
+  and toggling off restores them. Off by default.
 - The *Consonance* score measures common tones but nothing acts on it.
 
 **Product**
@@ -147,23 +152,19 @@ Honest list. Nothing here is hidden behind a "coming soon".
 - **Not a PWA.** No manifest, no service worker, no icons, despite the spec.
 - **Consonance-ranked chord picking was dropped.** The spec's colour-coded, consonance-sorted
   chord list never shipped; the selector shows a plain chromatic grid instead.
-  [theory/consonance.ts](theory/consonance.ts) is the orphan of that feature — it is not
-  imported anywhere.
 - **MIDI import is missing** despite a commit claiming it. Only export exists.
 - **Drag-and-drop is desktop-only.** [ChordGrid](components/ChordGrid/ChordGrid.tsx) uses the
   HTML5 drag events, which touch browsers do not fire. Reordering on a phone is impossible.
 
 **Code health**
 
-- No tests, no linter, no CI. The theory engine is pure functions over a stable library —
-  it is the easiest thing in the project to test and the most valuable to lock down.
+- 133 tests cover the theory engine and the voicing engine (`npm test`). No linter and no
+  CI yet.
 - [Composer.tsx](modes/composer/Composer.tsx) is ~960 lines and holds 25 `useState` calls,
   nine of which are near-identical synth-settings slots.
 - `setProgressionsWithHistory` calls other setters *inside* a `setState` updater, which
   React may run twice in StrictMode — undo history can gain duplicate entries.
 - Undo only covers progressions, not song structure, key/mode or tempo.
-- Empty placeholder files are checked in: `PerformancePad`, `SelectionAnalyzer`,
-  `EnvelopeControls` (0 bytes each, `.tsx` and `.css`).
 - [vite.config.ts](vite.config.ts) injects `GEMINI_API_KEY` into the client bundle. Nothing
   in the app uses it; if a key is ever set in `.env`, the build will publish it.
 - `index.html` declares `charset="utf-t"` — a typo; browsers fall back to a default.
