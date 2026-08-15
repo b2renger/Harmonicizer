@@ -120,8 +120,30 @@ export const getAbbreviatedChordName = (chordName) => {
         return chordName; // Return original if not recognized
     }
 
-    // The .symbol property from Tonal.js is the most reliable and canonical representation.
-    return chordInfo.symbol;
+    return canonicalChordSymbol(chordInfo);
+};
+
+/**
+ * Reduces a Tonal chord to one canonical spelling.
+ *
+ * `.symbol` preserves whatever casing it was given, so `Mode.seventhChords` yields
+ * "CMaj7" while a hand-built chord yields "Cmaj7". Those are the same chord but not the
+ * same string, which produces phantom duplicates anywhere chords are compared or deduped.
+ * The first alias is Tonal's short form and is stable across both spellings.
+ *
+ * @param {object} chordInfo - A non-empty Tonal chord object.
+ * @returns {string} The canonical symbol, e.g. "Cmaj7", "G7", "Am7", "C", "Cmaj7/E".
+ */
+const canonicalChordSymbol = (chordInfo) => {
+    const alias = chordInfo.aliases?.[0] ?? '';
+    // Both 'M' and '' denote a plain major triad; write that as the bare tonic.
+    const type = (alias === 'M' || alias === '') ? '' : alias;
+    const base = `${chordInfo.tonic}${type}`;
+
+    // Preserve slash chords, whose bass note is not the tonic.
+    return (chordInfo.root && chordInfo.root !== chordInfo.tonic)
+        ? `${base}/${chordInfo.root}`
+        : base;
 };
 
 
