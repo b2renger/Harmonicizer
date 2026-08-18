@@ -23,13 +23,16 @@ import { voiceStoredProgression } from '../../theory/voicing/adapt.js';
 import { newId } from '../../utils/id.js';
 import ParameterDials from '../../components/ParameterDials/ParameterDials.tsx';
 import BrickPalette from '../../components/BrickPalette/BrickPalette.tsx';
+import GeneratorPanel, { type GenerateMode } from '../../components/GeneratorPanel/GeneratorPanel.tsx';
 import { expandBrick } from '../../theory/bricks/expand.js';
 import { generate } from '../../theory/grammar/generate.js';
 import type { Brick } from '../../theory/bricks/types.js';
-import { paramStore, HARMONY_PARAMS, VOICING_PARAMS, type ParamName } from '../../params/store.js';
+import { paramStore, VOICING_PARAMS, type ParamName } from '../../params/store.js';
 import { paramsToVoicing } from '../../params/toVoicing.js';
 
 const MAX_HISTORY_SIZE = 30;
+/** The player assumes 4/4 throughout. */
+const BEATS_PER_BAR = 4;
 
 // Default Synth Settings
 const DEFAULT_ENVELOPE = { attack: 0.02, decay: 0.1, sustain: 0.3, release: 1 };
@@ -148,6 +151,10 @@ const Composer = ({ screenWidth, screenHeight }) => {
     // state, so hand-made voicings survive toggling it off again. Off by default so an
     // existing session sounds exactly as it did before.
     const [autoVoiceLeading, setAutoVoiceLeading] = useState(false);
+    // Generator settings. Length and replace-vs-append are explicit choices rather than
+    // inferred from whether the part happens to be empty.
+    const [generateBars, setGenerateBars] = useState(4);
+    const [generateMode, setGenerateMode] = useState<GenerateMode>('replace');
     const [isSynthLoading, setIsSynthLoading] = useState(false);
 
     // Refs for audio engine and file input
@@ -397,18 +404,12 @@ const Composer = ({ screenWidth, screenHeight }) => {
     /**
      * Generates harmony with the brick grammar, shaped by the live harmony dials.
      *
-     * An empty part is treated as a blank slate and gets a fresh key, mode and tempo too;
-     * otherwise it extends what is already there, in the key already set.
+     * Uses the key and mode already set — generating must not silently move you somewhere
+     * else — and takes its length and replace-or-append behaviour from the panel.
      */
-    const handleFeelLucky = useCallback(() => {
-        const currentProgression = progressions[activeProgressionId] || [];
-        const isEmpty = currentProgression.length === 0;
-
-        const key = isEmpty ? rootNotes[Math.floor(Math.random() * rootNotes.length)] : musicalKey;
-        const mode = isEmpty ? modes[Math.floor(Math.random() * modes.length)] : musicalMode;
-        const beats = isEmpty ? 32 : 16;
-
-        const { chords } = generate({ beats, key, mode }, liveParams);
+    const handleGenerate = useCallback(() => {
+        const beats = generateBars * BEATS_PER_BAR;
+        const { chords } = generate({ beats, key: musicalKey, mode: musicalMode }, liveParams);
         if (chords.length === 0) return;
 
         // Durations are rounded because the stored chord format counts whole beats. Step
@@ -419,18 +420,12 @@ const Composer = ({ screenWidth, screenHeight }) => {
             duration: Math.max(1, Math.round(durationBeats)),
         }));
 
-        if (isEmpty) {
-            setTempo(Math.floor(Math.random() * (160 - 80 + 1)) + 80);
-            setMusicalKey(key);
-            setMusicalMode(mode);
-            setProgressionsWithHistory(currents => ({ ...currents, [activeProgressionId]: newChords }));
-            return;
-        }
-        setProgressionsWithHistory(currents => ({
-            ...currents,
-            [activeProgressionId]: [...(currents[activeProgressionId] || []), ...newChords],
-        }));
-    }, [progressions, activeProgressionId, musicalKey, musicalMode, liveParams, setProgressionsWithHistory]);
+        setProgressionsWithHistory(currents => {
+            const existing = currents[activeProgressionId] || [];
+            const next = generateMode === 'append' ? [...existing, ...newChords] : newChords;
+            return { ...currents, [activeProgressionId]: next };
+        });
+    }, [generateBars, generateMode, musicalKey, musicalMode, liveParams, activeProgressionId, setProgressionsWithHistory]);
 
     const handleRemoveChord = useCallback((idToRemove) => {
         setProgressionsWithHistory(currents => ({
@@ -729,6 +724,8 @@ const Composer = ({ screenWidth, screenHeight }) => {
             musicalKey,
             musicalMode,
             autoVoiceLeading,
+            generateBars,
+            generateMode,
             params: liveParams,
             synthSettings: {
                 Rhodes: rhodesSettings,
@@ -756,7 +753,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
     }, [
         progressions, songStructure, tempo, synthType, isLooping, masterGain, reverbWet, reverbTime,
         isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, musicalKey, musicalMode,
-        autoVoiceLeading, liveParams,
+        autoVoiceLeading, generateBars, generateMode, liveParams,
         rhodesSettings, moogLeadSettings, moogBassSettings, vcs3DroneSettings, vcs3FxSettings,
         fmSettings, amSettings, basicSynthSettings, soundFontSettings
     ]);
@@ -887,6 +884,10 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 if (typeof importedData.musicalKey === 'string') setMusicalKey(importedData.musicalKey);
                 if (typeof importedData.musicalMode === 'string') setMusicalMode(importedData.musicalMode);
                 if (typeof importedData.autoVoiceLeading === 'boolean') setAutoVoiceLeading(importedData.autoVoiceLeading);
+                if (typeof importedData.generateBars === 'number') setGenerateBars(importedData.generateBars);
+                if (importedData.generateMode === 'replace' || importedData.generateMode === 'append') {
+                    setGenerateMode(importedData.generateMode);
+                }
                 // clampParams inside the store discards anything out of range or unknown.
                 if (importedData.params) paramStore.setAll(importedData.params);
 
@@ -984,9 +985,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     <button className="control-button clear-button" aria-label="Clear Part" onClick={handleClearProgression} title="Clear current progression">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                     </button>
-                    <button className="control-button lucky-button" aria-label="I feel lucky" onClick={handleFeelLucky} title="Generate Random Progression">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19,3H5C3.89,3 3,3.89 3,5V19C3,20.11 3.9,21 5,21H19C20.11,21 21,20.11 21,19V5C21,3.89 20.1,3 19,3M6,8.5C6,7.67 6.67,7 7.5,7S9,7.67 9,8.5C9,9.33 8.33,10 7.5,10S6,9.33 6,8.5M15,15.5C15,14.67 15.67,14 16.5,14S18,14.67 18,15.5C18,16.33 17.33,17 16.5,17S15,16.33 15,15.5M10.5,12C10.5,11.17 11.17,10.5 12,10.5S13.5,11.17 13.5,12C13.5,12.83 12.83,13.5 12,13.5S10.5,12.83 10.5,12M15,8.5C15,7.67 15.67,7 16.5,7S18,7.67 18,8.5C18,9.33 17.33,10 16.5,10S15,9.33 15,8.5M6,15.5C6,14.67 6.67,14 7.5,14S9,14.67 9,15.5C9,16.33 8.33,17 7.5,17S6,16.33 6,15.5Z"/></svg>
-                    </button>
                 </div>
                 <ChordGrid 
                     progression={displayedProgression}
@@ -1023,14 +1021,22 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 />
             </CollapsibleSection>
 
-            <CollapsibleSection title="Harmonic Bricks" defaultOpen={false}>
-                <ParameterDials
+            <CollapsibleSection title="Generate Progression" defaultOpen={true}>
+                <GeneratorPanel
                     params={liveParams}
-                    names={HARMONY_PARAMS}
-                    onChange={handleParamChange}
-                    onReset={handleParamReset}
-                    hint="These shape what the generator writes. Press the dice in the progression controls to hear them."
+                    onParamChange={handleParamChange}
+                    onParamReset={handleParamReset}
+                    bars={generateBars}
+                    onBarsChange={setGenerateBars}
+                    mode={generateMode}
+                    onModeChange={setGenerateMode}
+                    onGenerate={handleGenerate}
+                    musicalKey={musicalKey}
+                    musicalMode={musicalMode}
                 />
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Harmonic Bricks" defaultOpen={false}>
                 <BrickPalette
                     musicalKey={musicalKey}
                     musicalMode={musicalMode}

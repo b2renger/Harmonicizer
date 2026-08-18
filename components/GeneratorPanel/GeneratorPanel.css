@@ -1,0 +1,78 @@
+.generator-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.generator-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.generator-control {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.generator-label {
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+
+.generator-buttons {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.generator-buttons button {
+    padding: 0.4rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.generator-buttons button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.generator-buttons button.active {
+    background: rgba(79, 172, 254, 0.22);
+    border-color: #4facfe;
+}
+
+.generator-go {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    align-self: flex-start;
+    padding: 0.6rem 1.1rem;
+    border: 1px solid #4facfe;
+    border-radius: 8px;
+    background: rgba(79, 172, 254, 0.16);
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.generator-go:hover {
+    background: rgba(79, 172, 254, 0.3);
+}
+
+.generator-note {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    opacity: 0.6;
+}
