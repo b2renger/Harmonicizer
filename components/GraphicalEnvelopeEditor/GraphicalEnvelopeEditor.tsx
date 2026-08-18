@@ -7,7 +7,7 @@ import ADSRGraph from '../ADSRGraph/ADSRGraph.tsx';
 
 /**
  * A comprehensive UI component for controlling synthesizer parameters, effects,
- * and the arpeggiator. It dynamically displays controls relevant to the
+ * It dynamically displays controls relevant to the
  * currently selected synthesizer type.
  */
 const GraphicalEnvelopeEditor = (props) => {
@@ -208,52 +208,6 @@ const GraphicalEnvelopeEditor = (props) => {
                         <option value="AMSynth">AM Synth</option>
                         <option value="Synth">Basic Synth</option>
                     </select>
-                </div>
-
-                <div className="arpeggiator-controls">
-                    <label className="arpeggiator-toggle-label">Arpeggiator:</label>
-                    <button
-                        className={`arpeggiator-toggle-button ${props.isArpeggiatorActive ? 'active' : ''}`}
-                        onClick={props.onArpeggiatorToggle}
-                        aria-pressed={props.isArpeggiatorActive}
-                        aria-label="Toggle Arpeggiator"
-                    >
-                        {props.isArpeggiatorActive ? 'ON' : 'OFF'}
-                    </button>
-
-                    <label htmlFor="arpeggiatorTiming">Timing:</label>
-                    <select
-                        id="arpeggiatorTiming"
-                        name="arpeggiatorTiming"
-                        value={props.arpeggiatorTiming}
-                        onChange={(e) => props.onArpeggiatorTimingChange(e.target.value)}
-                        aria-label="Arpeggiator Timing"
-                        disabled={!props.isArpeggiatorActive}
-                    >
-                        <option value="4n">1/4 note</option>
-                        <option value="8n">1/8 note</option>
-                        <option value="8t">1/8 triplet</option>
-                        <option value="16n">1/16 note</option>
-                        <option value="16t">1/16 triplet</option>
-                        <option value="32n">1/32 note</option>
-                    </select>
-
-                    <label htmlFor="arpeggiatorRepeats">Repeats:</label>
-                    <input
-                        id="arpeggiatorRepeats"
-                        type="number"
-                        className="arpeggiator-input"
-                        value={isFinite(props.arpeggiatorRepeats) ? props.arpeggiatorRepeats : ''}
-                        onChange={(e) => {
-                            const value = e.target.value;
-                            props.onArpeggiatorRepeatsChange(value === '' ? Infinity : Math.max(1, parseInt(value, 10) || 1));
-                        }}
-                        placeholder="∞"
-                        min="1"
-                        step="1"
-                        disabled={!props.isArpeggiatorActive}
-                        aria-label="Arpeggiator Repeats"
-                    />
                 </div>
             </div>
 

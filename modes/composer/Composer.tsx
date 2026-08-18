@@ -24,6 +24,9 @@ import { newId } from '../../utils/id.js';
 import ParameterDials from '../../components/ParameterDials/ParameterDials.tsx';
 import BrickPalette from '../../components/BrickPalette/BrickPalette.tsx';
 import GeneratorPanel, { type GenerateMode } from '../../components/GeneratorPanel/GeneratorPanel.tsx';
+import Arpeggiator from '../../components/Arpeggiator/Arpeggiator.tsx';
+import { arpeggioSequence } from '../../theory/arpeggio/sequence.js';
+import { DEFAULT_ARPEGGIO, type ArpeggioSettings } from '../../theory/arpeggio/types.js';
 import { expandBrick } from '../../theory/bricks/expand.js';
 import { generate } from '../../theory/grammar/generate.js';
 import type { Brick } from '../../theory/bricks/types.js';
@@ -133,9 +136,10 @@ const Composer = ({ screenWidth, screenHeight }) => {
     const [reverbTime, setReverbTime] = useState(1.5);
 
     // Arpeggiator state
-    const [isArpeggiatorActive, setIsArpeggiatorActive] = useState(false);
-    const [arpeggiatorTiming, setArpeggiatorTiming] = useState('16n');
-    const [arpeggiatorRepeats, setArpeggiatorRepeats] = useState(Infinity);
+    const [arpeggio, setArpeggio] = useState<ArpeggioSettings>(DEFAULT_ARPEGGIO);
+    const patchArpeggio = useCallback((patch: Partial<ArpeggioSettings>) => {
+        setArpeggio(current => ({ ...current, ...patch }));
+    }, []);
 
     // Music theory context state
     const [musicalKey, setMusicalKey] = useState('C');
@@ -300,7 +304,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
         player.current.setGain(masterGain);
         player.current.setReverbWet(reverbWet);
         player.current.setReverbTime(reverbTime);
-        player.current.setArpeggiator(isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats);
+        player.current.setArpeggio(arpeggio);
         player.current.setSynth(synthType, currentSynthSettings);
         player.current.setProgression(activeProgression);
 
@@ -340,13 +344,13 @@ const Composer = ({ screenWidth, screenHeight }) => {
     // Sync arpeggiator settings with the audio player.
     useEffect(() => {
         if (player.current) {
-            player.current.setArpeggiator(isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats);
-            // Re-send the currently playing progression to rebuild the part with/without arpeggiator logic.
+            player.current.setArpeggio(arpeggio);
+            // Re-send the progression so the part is rebuilt with the new figure.
             if (playbackState === 'playing') {
                 player.current.setProgression(buildSongProgression());
             }
         }
-    }, [isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, playbackState, buildSongProgression]);
+    }, [arpeggio, playbackState, buildSongProgression]);
     
     /**
      * A centralized function to stop all playback.
@@ -718,9 +722,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
             masterGain,
             reverbWet,
             reverbTime,
-            isArpeggiatorActive,
-            arpeggiatorTiming,
-            arpeggiatorRepeats,
+            arpeggio,
             musicalKey,
             musicalMode,
             autoVoiceLeading,
@@ -752,7 +754,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
         URL.revokeObjectURL(url);
     }, [
         progressions, songStructure, tempo, synthType, isLooping, masterGain, reverbWet, reverbTime,
-        isArpeggiatorActive, arpeggiatorTiming, arpeggiatorRepeats, musicalKey, musicalMode,
+        arpeggio, musicalKey, musicalMode,
         autoVoiceLeading, generateBars, generateMode, liveParams,
         rhodesSettings, moogLeadSettings, moogBassSettings, vcs3DroneSettings, vcs3FxSettings,
         fmSettings, amSettings, basicSynthSettings, soundFontSettings
@@ -779,14 +781,16 @@ const Composer = ({ screenWidth, screenHeight }) => {
             const notes = chord.notes;
     
             if (notes.length > 0) {
-                if (isArpeggiatorActive) {
-                    const arpeggioTimingAsSeconds = Tone.Time(arpeggiatorTiming).toSeconds();
-                    if (arpeggioTimingAsSeconds > 0) {
+                if (arpeggio.active) {
+                    const arpeggioTimingAsSeconds = Tone.Time(arpeggio.timing).toSeconds();
+                    // Same figure the player schedules, so the file matches what you heard.
+                    const sequence = arpeggioSequence(notes, arpeggio);
+                    if (arpeggioTimingAsSeconds > 0 && sequence.length > 0) {
                         const numNotesInArp = Math.floor(chordDurationInSeconds / arpeggioTimingAsSeconds);
-                        const finalNoteDuration = Math.min(arpeggioTimingAsSeconds * 0.9, 0.5); 
-                        
+                        const finalNoteDuration = Math.min(arpeggioTimingAsSeconds * arpeggio.gate, 0.5);
+
                         for (let i = 0; i < numNotesInArp; i++) {
-                            const note = notes[i % notes.length];
+                            const note = sequence[i % sequence.length];
                             track.addNote({
                                 name: note,
                                 time: currentTime + (i * arpeggioTimingAsSeconds),
@@ -818,7 +822,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    }, [progressions, songStructure, activeProgression, tempo, isArpeggiatorActive, arpeggiatorTiming]);
+    }, [progressions, songStructure, activeProgression, tempo, arpeggio]);
 
     /**
      * Opens the file dialog by programmatically clicking the hidden file input.
@@ -878,9 +882,17 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 if (typeof importedData.masterGain === 'number') setMasterGain(importedData.masterGain);
                 if (typeof importedData.reverbWet === 'number') setReverbWet(importedData.reverbWet);
                 if (typeof importedData.reverbTime === 'number') setReverbTime(importedData.reverbTime);
-                if (typeof importedData.isArpeggiatorActive === 'boolean') setIsArpeggiatorActive(importedData.isArpeggiatorActive);
-                if (typeof importedData.arpeggiatorTiming === 'string') setArpeggiatorTiming(importedData.arpeggiatorTiming);
-                if (typeof importedData.arpeggiatorRepeats === 'number') setArpeggiatorRepeats(importedData.arpeggiatorRepeats);
+                if (importedData.arpeggio && typeof importedData.arpeggio === 'object') {
+                    setArpeggio({ ...DEFAULT_ARPEGGIO, ...importedData.arpeggio });
+                } else if (typeof importedData.isArpeggiatorActive === 'boolean') {
+                    // Older sessions stored the three loose fields.
+                    setArpeggio({
+                        ...DEFAULT_ARPEGGIO,
+                        active: importedData.isArpeggiatorActive,
+                        timing: typeof importedData.arpeggiatorTiming === 'string' ? importedData.arpeggiatorTiming : DEFAULT_ARPEGGIO.timing,
+                        repeats: typeof importedData.arpeggiatorRepeats === 'number' ? importedData.arpeggiatorRepeats : DEFAULT_ARPEGGIO.repeats,
+                    });
+                }
                 if (typeof importedData.musicalKey === 'string') setMusicalKey(importedData.musicalKey);
                 if (typeof importedData.musicalMode === 'string') setMusicalMode(importedData.musicalMode);
                 if (typeof importedData.autoVoiceLeading === 'boolean') setAutoVoiceLeading(importedData.autoVoiceLeading);
@@ -1036,6 +1048,14 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 />
             </CollapsibleSection>
 
+            <CollapsibleSection title="Arpeggiator" defaultOpen={false}>
+                <Arpeggiator
+                    settings={arpeggio}
+                    onChange={patchArpeggio}
+                    previewNotes={selectionContext?.notes ?? activeProgression[0]?.notes ?? []}
+                />
+            </CollapsibleSection>
+
             <CollapsibleSection title="Harmonic Bricks" defaultOpen={false}>
                 <BrickPalette
                     musicalKey={musicalKey}
@@ -1064,12 +1084,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     onReverbTimeChange={setReverbTime}
                     synthType={synthType}
                     onSynthChange={handleSynthChange}
-                    isArpeggiatorActive={isArpeggiatorActive}
-                    onArpeggiatorToggle={() => setIsArpeggiatorActive(prev => !prev)}
-                    arpeggiatorTiming={arpeggiatorTiming}
-                    onArpeggiatorTimingChange={setArpeggiatorTiming}
-                    arpeggiatorRepeats={arpeggiatorRepeats}
-                    onArpeggiatorRepeatsChange={setArpeggiatorRepeats}
                     rhodesSettings={rhodesSettings} onRhodesSettingsChange={setRhodesSettings}
                     moogLeadSettings={moogLeadSettings} onMoogLeadSettingsChange={setMoogLeadSettings}
                     moogBassSettings={moogBassSettings} onMoogBassSettingsChange={setMoogBassSettings}

@@ -1,0 +1,138 @@
+.arpeggiator {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.arpeggiator.inactive .arp-row,
+.arpeggiator.inactive .arp-shape-row,
+.arpeggiator.inactive .arp-preview {
+    opacity: 0.5;
+}
+
+.arp-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.arp-toggle input {
+    width: 1.05rem;
+    height: 1.05rem;
+    accent-color: #4facfe;
+    cursor: pointer;
+}
+
+.arp-row,
+.arp-shape-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+.arp-control {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.arp-label {
+    font-size: 0.76rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+
+.arp-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+}
+
+.arp-buttons button,
+.arp-shape-picker button {
+    padding: 0.35rem 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.arp-buttons button:hover,
+.arp-shape-picker button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.arp-buttons button.active {
+    background: rgba(79, 172, 254, 0.22);
+    border-color: #4facfe;
+}
+
+.arp-control select,
+.arp-number {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.arp-number {
+    width: 5rem;
+}
+
+.arp-shape-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.arp-shape {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+}
+
+.arp-shape rect {
+    fill: #4facfe;
+}
+
+.arp-shape-index {
+    font-size: 0.74rem;
+    opacity: 0.62;
+    font-variant-numeric: tabular-nums;
+}
+
+.arp-inline-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.2rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.arp-inline-toggle input {
+    accent-color: #4facfe;
+    cursor: pointer;
+}
+
+.arp-preview {
+    margin: 0;
+    font-size: 0.82rem;
+    opacity: 0.72;
+}
+
+.arp-preview-notes {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #4facfe;
+}

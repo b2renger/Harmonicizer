@@ -5,6 +5,8 @@ import { FMSynth, MonoSynth, AMSynth, Synth, PolySynthOptions, Sampler } from 't
 import { RecursivePartial } from 'tone/build/esm/core/util/Interface';
 import { soundfonts } from './soundfonts.js';
 import { Note } from 'tonal';
+import { arpeggioSequence } from '../theory/arpeggio/sequence.js';
+import { DEFAULT_ARPEGGIO, type ArpeggioSettings } from '../theory/arpeggio/types.js';
 
 
 /**
@@ -25,12 +27,8 @@ export class Player {
     onLoadingStateChange: (isLoading: boolean) => void;
     /** The Tone.Part instance that schedules all musical events. It is created once and reused. */
     part: Tone.Part | null;
-    /** Flag to determine if the arpeggiator is active. */
-    isArpeggiatorActive: boolean;
-    /** The timing interval for the arpeggiator (e.g., '8n', '16t'). */
-    arpeggiatorTiming: string;
-    /** The number of times the arpeggiator should repeat for a chord. Infinity for continuous. */
-    arpeggiatorRepeats: number;
+    /** Arpeggiator configuration. See theory/arpeggio for what the shape means. */
+    arpeggio: ArpeggioSettings;
     /** The current chord progression data. */
     progression: any[];
     /** A string identifier for the current synth type (e.g., 'Rhodes'). */
@@ -46,9 +44,7 @@ export class Player {
         this.onTick = onTick;
         this.onLoadingStateChange = onLoadingStateChange;
         this.part = null;
-        this.isArpeggiatorActive = false;
-        this.arpeggiatorTiming = '16n';
-        this.arpeggiatorRepeats = Infinity;
+        this.arpeggio = { ...DEFAULT_ARPEGGIO };
         this.progression = [];
         this.currentSynthType = 'Rhodes';
         
@@ -172,29 +168,33 @@ export class Player {
                 continue;
             }
 
-            if (this.isArpeggiatorActive) {
-                const arpeggioTimingAsSeconds = Tone.Time(this.arpeggiatorTiming).toSeconds();
+            if (this.arpeggio.active) {
+                const arpeggioTimingAsSeconds = Tone.Time(this.arpeggio.timing).toSeconds();
                 const beatDurationInSeconds = 60 / Tone.Transport.bpm.value;
                 const arpeggioTimingInBeats = arpeggioTimingAsSeconds / beatDurationInSeconds;
-                
-                if (arpeggioTimingInBeats <= 0) {
+
+                // The figure the arpeggio plays: a permutation of chord tones across the
+                // configured octave span, optionally folded back down.
+                const sequence = arpeggioSequence(notes, this.arpeggio);
+
+                if (arpeggioTimingInBeats <= 0 || sequence.length === 0) {
                     accumulatedBeats += chordDurationInBeats;
                     continue;
                 }
 
-                const finalNoteDurationInSeconds = Math.max(arpeggioTimingAsSeconds * 0.8, 0.05);
+                const finalNoteDurationInSeconds = Math.max(arpeggioTimingAsSeconds * this.arpeggio.gate, 0.02);
                 const finalNoteDurationInBeats = finalNoteDurationInSeconds / beatDurationInSeconds;
-                
+
                 const chordStartBeats = accumulatedBeats;
                 const chordEndBeats = chordStartBeats + chordDurationInBeats;
-                const maxRepetitions = this.arpeggiatorRepeats * notes.length;
+                const maxRepetitions = this.arpeggio.repeats * sequence.length;
                 let notesPlayedInArpeggio = 0;
                 let noteIndex = 0;
 
                 for (let currentTimeInBeats = chordStartBeats; currentTimeInBeats < chordEndBeats; currentTimeInBeats += arpeggioTimingInBeats) {
                     if (notesPlayedInArpeggio >= maxRepetitions) break;
-                    
-                    const note = notes[noteIndex % notes.length];
+
+                    const note = sequence[noteIndex % sequence.length];
                     const noteBars = Math.floor(currentTimeInBeats / timeSignature);
                     const noteBeatsInBar = currentTimeInBeats % timeSignature;
                     
@@ -454,11 +454,9 @@ export class Player {
         this.reverb.preDelay = value * 0.03;
     }
 
-    /** Configures the arpeggiator settings. */
-    setArpeggiator(active: boolean, timing: string, repeats: number) {
-        this.isArpeggiatorActive = active;
-        this.arpeggiatorTiming = timing;
-        this.arpeggiatorRepeats = repeats;
+    /** Replaces the arpeggiator configuration. The caller rebuilds the part afterwards. */
+    setArpeggio(settings: ArpeggioSettings) {
+        this.arpeggio = { ...settings };
     }
 
     /**
