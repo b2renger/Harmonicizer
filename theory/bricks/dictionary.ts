@@ -1,15 +1,16 @@
 import type { Brick } from './types.js';
 
 /**
- * A starter brick dictionary, written from the published brick theory rather than
- * transcribed from Impro-Visor's `vocab/My.dictionary`.
+ * The brick dictionary, written from the published brick theory rather than transcribed
+ * from Impro-Visor's `vocab/My.dictionary`.
  *
- * Deliberately small. Hand-checked bricks that sound right beat forty that have not been
- * listened to, and the weights only mean anything once they have been heard against each
- * other. Everything is spelled in C and transposed at expansion time.
+ * Everything is spelled in C and transposed at expansion time. Weights are derived from
+ * Impro-Visor's parse costs, inverted: they use cost to find the cheapest *analysis* of a
+ * progression, we use the inverse to bias *generation*. They have not been tuned by ear
+ * yet, and only start mattering once the grammar samples them.
  */
 export const BRICK_DICTIONARY: Brick[] = [
-    // ---------------------------------------------------------------- major
+    // ==================================================================== major
     {
         name: 'Perfect-Cadence',
         type: 'Cadence',
@@ -22,7 +23,7 @@ export const BRICK_DICTIONARY: Brick[] = [
         defaultBeats: 8,
         weight: 4.0,
         diatonic: true,
-        description: 'V7 → I. The plainest way to arrive home.',
+        description: 'V7 to I. The plainest way to arrive home.',
     },
     {
         name: 'Straight-Approach',
@@ -36,7 +37,7 @@ export const BRICK_DICTIONARY: Brick[] = [
         defaultBeats: 8,
         weight: 2.2,
         diatonic: true,
-        description: 'ii7 → V7. Sets up a cadence without resolving it.',
+        description: 'ii7 to V7. Sets up a cadence without resolving it.',
     },
     {
         name: 'Full-Cadence',
@@ -51,7 +52,7 @@ export const BRICK_DICTIONARY: Brick[] = [
         defaultBeats: 16,
         weight: 4.0,
         diatonic: true,
-        description: 'ii7 → V7 → Imaj7. The standard jazz cadence.',
+        description: 'ii7 to V7 to Imaj7. The standard jazz cadence.',
     },
     {
         name: 'Plagal-Cadence',
@@ -65,7 +66,65 @@ export const BRICK_DICTIONARY: Brick[] = [
         defaultBeats: 8,
         weight: 1.6,
         diatonic: true,
-        description: 'IV → I. Softer than a perfect cadence; the "Amen".',
+        description: 'IV to I. Softer than a perfect cadence; the "Amen".',
+    },
+    {
+        name: 'Deceptive-Cadence',
+        type: 'Cadence',
+        mode: 'Major',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'G7', dur: 1 },
+            { kind: 'chord', symbol: 'Am7', dur: 1 },
+        ],
+        defaultBeats: 8,
+        weight: 2.5,
+        diatonic: true,
+        description: 'V7 to vi. Promises home, then withholds it.',
+    },
+    {
+        name: 'Backdoor-Cadence',
+        type: 'Cadence',
+        mode: 'Major',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Fm7', dur: 1 },
+            { kind: 'chord', symbol: 'Bb7', dur: 1 },
+            { kind: 'chord', symbol: 'Cmaj7', dur: 2 },
+        ],
+        defaultBeats: 16,
+        weight: 2.0,
+        diatonic: false,
+        description: 'ivm7 to bVII7 to I. Arrives home from underneath.',
+    },
+    {
+        name: 'Tritone-Cadence',
+        type: 'Cadence',
+        mode: 'Major',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Db7', dur: 1 },
+            { kind: 'chord', symbol: 'Cmaj7', dur: 1 },
+        ],
+        defaultBeats: 8,
+        weight: 1.4,
+        diatonic: false,
+        description: 'bII7 to I. The tritone substitute for V7.',
+    },
+    {
+        name: 'Long-Approach',
+        type: 'Approach',
+        mode: 'Major',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Em7', dur: 1 },
+            { kind: 'chord', symbol: 'A7', dur: 1 },
+            { kind: 'brick', name: 'Straight-Approach', key: 'C', dur: 2 },
+        ],
+        defaultBeats: 16,
+        weight: 1.8,
+        diatonic: false,
+        description: 'iii7 to VI7 to ii7 to V7. A long run at the cadence.',
     },
     {
         name: 'Dropback',
@@ -79,7 +138,7 @@ export const BRICK_DICTIONARY: Brick[] = [
         defaultBeats: 8,
         weight: 3.3,
         diatonic: true,
-        description: 'I → vi. Steps away from home without leaving the key.',
+        description: 'I to vi. Steps away from home without leaving the key.',
     },
     {
         name: 'Turnaround',
@@ -94,11 +153,83 @@ export const BRICK_DICTIONARY: Brick[] = [
         ],
         defaultBeats: 8,
         weight: 5.0,
-        diatonic: false,   // A7 is a secondary dominant
-        description: 'I → VI7 → ii7 → V7. Circles back to the start.',
+        diatonic: false,
+        description: 'I to VI7 to ii7 to V7. Circles back to the start.',
+    },
+    {
+        name: 'Rhythm-Turnaround',
+        type: 'Turnaround',
+        mode: 'Major',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Cmaj7', dur: 1 },
+            { kind: 'chord', symbol: 'Am7', dur: 1 },
+            { kind: 'brick', name: 'Straight-Approach', key: 'C', dur: 2 },
+        ],
+        defaultBeats: 16,
+        weight: 5.0,
+        diatonic: true,
+        description: 'I to vi to ii to V. The rhythm-changes turnaround.',
+    },
+    {
+        name: 'Circle-Approach',
+        type: 'Approach',
+        mode: 'Major',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Am7', dur: 1 },
+            { kind: 'brick', name: 'Straight-Approach', key: 'C', dur: 2 },
+            { kind: 'chord', symbol: 'Cmaj7', dur: 1 },
+        ],
+        defaultBeats: 16,
+        weight: 2.6,
+        diatonic: true,
+        description: 'vi to ii to V to I. Round the circle of fifths.',
+    },
+    {
+        name: 'On-Off',
+        type: 'OnOff',
+        mode: 'Major',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Cmaj7', dur: 1 },
+            { kind: 'chord', symbol: 'Dm7', dur: 1 },
+        ],
+        defaultBeats: 8,
+        weight: 1.0,
+        diatonic: true,
+        description: 'I against ii. Rocks between home and not-home.',
+    },
+    {
+        name: 'Opening-Vamp',
+        type: 'Opening',
+        mode: 'Major',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Cmaj7', dur: 1 },
+            { kind: 'chord', symbol: 'Fmaj7', dur: 1 },
+        ],
+        defaultBeats: 8,
+        weight: 4.0,
+        diatonic: true,
+        description: 'I to IV. An unhurried way in.',
+    },
+    {
+        name: 'Sixth-Ending',
+        type: 'Ending',
+        mode: 'Major',
+        key: 'C',
+        blocks: [
+            { kind: 'brick', name: 'Straight-Approach', key: 'C', dur: 2 },
+            { kind: 'chord', symbol: 'C6', dur: 2 },
+        ],
+        defaultBeats: 16,
+        weight: 3.3,
+        diatonic: true,
+        description: 'ii to V to I6. Settles rather than stops.',
     },
 
-    // ---------------------------------------------------------------- minor
+    // ==================================================================== minor
     {
         name: 'Minor-Cadence',
         type: 'Cadence',
@@ -111,7 +242,7 @@ export const BRICK_DICTIONARY: Brick[] = [
         defaultBeats: 8,
         weight: 4.0,
         diatonic: true,
-        description: 'V7 → i. The raised third in the dominant is what pulls.',
+        description: 'V7 to i. The raised third in the dominant is what pulls.',
     },
     {
         name: 'Minor-Approach',
@@ -125,7 +256,78 @@ export const BRICK_DICTIONARY: Brick[] = [
         defaultBeats: 8,
         weight: 2.2,
         diatonic: true,
-        description: 'iiø7 → V7. The minor-key approach to a cadence.',
+        description: 'iio7 to V7. The minor-key approach to a cadence.',
+    },
+    {
+        name: 'Minor-Full-Cadence',
+        type: 'Cadence',
+        mode: 'Minor',
+        key: 'C',
+        blocks: [
+            { kind: 'brick', name: 'Minor-Approach', key: 'C', dur: 2 },
+            { kind: 'chord', symbol: 'Cm7', dur: 2 },
+        ],
+        defaultBeats: 16,
+        weight: 4.0,
+        diatonic: true,
+        description: 'iio7 to V7 to i7. The minor-key standard.',
+    },
+    {
+        name: 'Minor-Deceptive',
+        type: 'Cadence',
+        mode: 'Minor',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'G7', dur: 1 },
+            { kind: 'chord', symbol: 'Abmaj7', dur: 1 },
+        ],
+        defaultBeats: 8,
+        weight: 2.5,
+        diatonic: true,
+        description: 'V7 to VI. Turns aside instead of resolving.',
+    },
+    {
+        name: 'Minor-Plagal',
+        type: 'Cadence',
+        mode: 'Minor',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Fm', dur: 1 },
+            { kind: 'chord', symbol: 'Cm', dur: 1 },
+        ],
+        defaultBeats: 8,
+        weight: 1.6,
+        diatonic: true,
+        description: 'iv to i. Grave, and modal rather than tonal.',
+    },
+    {
+        name: 'Neapolitan-Approach',
+        type: 'Approach',
+        mode: 'Minor',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Db', dur: 1 },
+            { kind: 'chord', symbol: 'G7', dur: 1 },
+        ],
+        defaultBeats: 8,
+        weight: 1.4,
+        diatonic: false,
+        description: 'bII to V7. The Neapolitan leaning on the dominant.',
+    },
+    {
+        name: 'Minor-Turnaround',
+        type: 'Turnaround',
+        mode: 'Minor',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Cm7', dur: 1 },
+            { kind: 'chord', symbol: 'Abmaj7', dur: 1 },
+            { kind: 'brick', name: 'Minor-Approach', key: 'C', dur: 2 },
+        ],
+        defaultBeats: 16,
+        weight: 5.0,
+        diatonic: true,
+        description: 'i to VI to iio to V. Circles back in minor.',
     },
     {
         name: 'Andalusian',
@@ -141,7 +343,7 @@ export const BRICK_DICTIONARY: Brick[] = [
         defaultBeats: 16,
         weight: 3.3,
         diatonic: true,
-        description: 'i → bVII → bVI → V7. The descending flamenco tetrachord.',
+        description: 'i to bVII to bVI to V7. The descending flamenco tetrachord.',
     },
 ];
 

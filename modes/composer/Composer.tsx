@@ -100,7 +100,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
         ]
     });
     const [activeProgressionId, setActiveProgressionId] = useState('A');
-    // FIX: Explicitly type songStructure state to avoid type inference issues with newId()
+    // Explicitly typed so the inferred element type is not widened to string.
     const [songStructure, setSongStructure] = useState<{ id: string; progressionId: string; }[]>([{ id: newId(), progressionId: 'A' }]);
     const [progressionsHistory, setProgressionsHistory] = useState([]);
     
@@ -603,6 +603,61 @@ const Composer = ({ screenWidth, screenHeight }) => {
         });
     }, [activeProgressionId, setProgressionsWithHistory]);
 
+    /**
+     * What surrounds the slot the chord modal is working on.
+     *
+     * `next` wraps to the first chord when editing the last one of a looping progression,
+     * because that is genuinely what sounds next.
+     */
+    const editingSlot = useMemo(() => {
+        const prog = activeProgression;
+        const symbolAt = (i: number) => {
+            const c = prog[i];
+            return c && c.notes.length > 0 ? detectChordFromNotes(c.notes) : null;
+        };
+        const wrapped = () => (isLooping && prog.length > 1 ? symbolAt(0) : null);
+
+        const index = editingChord ? prog.findIndex(c => c.id === editingChord.id) : -1;
+        if (index === -1) {
+            // A new chord is appended, so it follows the last one.
+            return { prev: symbolAt(prog.length - 1), next: wrapped(), isExisting: false };
+        }
+        return {
+            prev: index > 0 ? symbolAt(index - 1) : wrapped(),
+            next: index < prog.length - 1 ? symbolAt(index + 1) : wrapped(),
+            isExisting: true,
+        };
+    }, [editingChord, activeProgression, isLooping]);
+
+    /**
+     * Applies a brick from the chord modal.
+     *
+     * This *replaces* the chord being edited with the brick's chords, where the palette's
+     * handleAddBrick inserts alongside. Different intent, so kept separate.
+     */
+    const handleReplaceWithBrick = useCallback((brick: Brick) => {
+        const expanded = expandBrick(brick, musicalKey, brick.defaultBeats);
+        if (expanded.length === 0) return;
+
+        const newChords = expanded.map(({ symbol, durationBeats }) => ({
+            id: newId(),
+            notes: getChordNotesWithOctaves(symbol, 4),
+            duration: Math.max(1, Math.round(durationBeats)),
+        }));
+
+        setProgressionsWithHistory(currents => {
+            const prog = currents[activeProgressionId] || [];
+            const index = editingChord ? prog.findIndex(c => c.id === editingChord.id) : -1;
+            if (index === -1) {
+                return { ...currents, [activeProgressionId]: [...prog, ...newChords] };
+            }
+            const next = [...prog];
+            next.splice(index, 1, ...newChords);
+            return { ...currents, [activeProgressionId]: next };
+        });
+        handleCloseModal();
+    }, [musicalKey, editingChord, activeProgressionId, setProgressionsWithHistory, handleCloseModal]);
+
     const suggestionContextChord = useMemo(() => {
         const chord = selectionContext || (activeProgression.length > 0 ? activeProgression[activeProgression.length - 1] : null)
         if (!chord) return null;
@@ -939,15 +994,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     <button className={`control-button ${isNoteVisualizerVisible ? 'active' : ''}`} onClick={() => setIsNoteVisualizerVisible(prev => !prev)} title="Toggle Note Visualizer" aria-pressed={isNoteVisualizerVisible}>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-8zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
                     </button>
-                    <button
-                        className={`control-button ${autoVoiceLeading ? 'active' : ''}`}
-                        onClick={() => setAutoVoiceLeading(prev => !prev)}
-                        title={autoVoiceLeading ? 'Auto voice leading: on' : 'Auto voice leading: off'}
-                        aria-label="Toggle automatic voice leading"
-                        aria-pressed={autoVoiceLeading}
-                    >
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg"><path d="M3 17c4 0 4-4 8-4s4 4 8 4"/><path d="M3 11c4 0 4-4 8-4s4 4 8 4"/></svg>
-                    </button>
                     <KeySignature currentKey={musicalKey} currentMode={musicalMode} onKeyChange={setMusicalKey} onModeChange={setMusicalMode} rootNotes={rootNotes} modes={modes} />
                     <button className="control-button" aria-label="Undo last action" onClick={handleUndo} disabled={progressionsHistory.length === 0} title="Undo">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
@@ -991,6 +1037,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     onChange={handleParamChange}
                     onReset={handleParamReset}
                     isActive={autoVoiceLeading}
+                    onToggleActive={() => setAutoVoiceLeading(prev => !prev)}
                 />
             </CollapsibleSection>
 
@@ -1044,6 +1091,10 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 player={player.current}
                 screenWidth={screenWidth}
                 screenHeight={screenHeight}
+                slotPrev={editingSlot.prev}
+                slotNext={editingSlot.next}
+                isExistingChord={editingSlot.isExisting}
+                onApplyBrick={handleReplaceWithBrick}
             />
         </div>
     );

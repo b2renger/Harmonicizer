@@ -4,6 +4,7 @@ import { rootNotes, chordTypes, getChordNotesWithOctaves, detectChordFromNotes, 
 import { getDiatonicChords, getBorrowedChords, getRomanNumeralForNote } from '../../theory/harmony.js';
 import { Chord as TonalChord, Note } from 'tonal';
 import CollapsibleSection from '../CollapsibleSection/CollapsibleSection.tsx';
+import BrickSuggestions from '../BrickSuggestions/BrickSuggestions.tsx';
 import './ChordSelector.css';
 
 /**
@@ -11,7 +12,7 @@ import './ChordSelector.css';
  * It provides a comprehensive interface for selecting chord properties and
  * visualizes the relationship of the chord to its musical context.
  */
-const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode, player, screenWidth, screenHeight }) => {
+const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode, player, screenWidth, screenHeight, slotPrev, slotNext, onApplyBrick, isExistingChord }) => {
     // Internal state for managing the chord being edited within the modal.
     const [selectedRoot, setSelectedRoot] = useState('C');
     const [selectedType, setSelectedType] = useState('maj7');
@@ -166,6 +167,23 @@ const ChordSelector = ({ isOpen, onClose, onSave, chord, musicalKey, musicalMode
                 </header>
 
                 <div className="modal-sections-wrapper">
+                    {onApplyBrick && (
+                        <div className="static-section">
+                            <div className="section-header-static">
+                                <h3>Suggested bricks</h3>
+                            </div>
+                            <div className="section-content-inner">
+                                <BrickSuggestions
+                                    prev={slotPrev ?? null}
+                                    next={slotNext ?? null}
+                                    musicalKey={musicalKey}
+                                    musicalMode={musicalMode}
+                                    onApply={onApplyBrick}
+                                    actionLabel={isExistingChord ? 'Replace with' : 'Add'}
+                                />
+                            </div>
+                        </div>
+                    )}
                      <div className="static-section">
                         <div className="section-header-static">
                             <h3>Chord Properties</h3>

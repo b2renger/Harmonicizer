@@ -30,3 +30,22 @@
     padding: 0.35rem 0.9rem;
     font-size: 0.85rem;
 }
+
+.voicing-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.voicing-toggle input {
+    width: 1.05rem;
+    height: 1.05rem;
+    accent-color: #4facfe;
+    cursor: pointer;
+}
+
+.voicing-toggle-label {
+    user-select: none;
+}

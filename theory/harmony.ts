@@ -297,7 +297,7 @@ export const getChordFromRomanNumeral = (roman, key, mode) => {
  * C minor) and produce a chord nobody asked for. Harmonic minor puts the leading tone at
  * degree 7, and the subtonic is then written explicitly as "bVII".
  */
-const degreeReferenceScale = (key: string, mode: string): string =>
+export const degreeReferenceScale = (key: string, mode: string): string =>
     mode === 'minor' ? `${key} harmonic minor` : `${key} ${mode}`;
 
 /**

@@ -126,7 +126,8 @@ describe('the dictionary itself', () => {
 
     it('covers both modes and the cadence/approach/turnaround/dropback families', () => {
         expect(new Set(BRICK_DICTIONARY.map(b => b.mode))).toEqual(new Set(['Major', 'Minor']));
-        expect(new Set(BRICK_DICTIONARY.map(b => b.type)))
-            .toEqual(new Set(['Cadence', 'Approach', 'Turnaround', 'Dropback']));
+        for (const required of ['Cadence', 'Approach', 'Turnaround', 'Dropback']) {
+            expect(BRICK_DICTIONARY.some(b => b.type === required), required).toBe(true);
+        }
     });
 });

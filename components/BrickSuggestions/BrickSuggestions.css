@@ -1,0 +1,83 @@
+.brick-suggestions-context {
+    margin: 0 0 0.6rem;
+    font-size: 0.85rem;
+    opacity: 0.75;
+}
+
+.brick-suggestions-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.55rem;
+}
+
+.brick-suggestion-button {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: 100%;
+    padding: 0.6rem 0.7rem;
+    text-align: left;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.brick-suggestion-button:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.brick-suggestion-top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.brick-suggestion-name {
+    flex: 1;
+    font-weight: 700;
+    text-transform: capitalize;
+    font-size: 0.92rem;
+}
+
+.brick-suggestion-fit {
+    flex: 0 0 46px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.16);
+    overflow: hidden;
+}
+
+.brick-suggestion-fit-bar {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #4facfe, #00f2fe);
+}
+
+.brick-suggestion-chords {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.88rem;
+    color: #4facfe;
+}
+
+.brick-suggestion-reasons {
+    font-size: 0.74rem;
+    line-height: 1.35;
+    opacity: 0.68;
+}
+
+.brick-suggestion-action {
+    align-self: flex-start;
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    opacity: 0.55;
+}

@@ -9,6 +9,7 @@ interface ParameterDialsProps {
     onReset: () => void;
     /** The dials shape the voicing engine, which only runs when this is on. */
     isActive: boolean;
+    onToggleActive: () => void;
 }
 
 /**
@@ -18,14 +19,17 @@ interface ParameterDialsProps {
  * controllers have a stable contract, but a dial that moves and changes nothing reads as
  * a bug, so they stay hidden until the engine stage behind them lands.
  */
-const ParameterDials: React.FC<ParameterDialsProps> = ({ params, onChange, onReset, isActive }) => (
+const ParameterDials: React.FC<ParameterDialsProps> = ({ params, onChange, onReset, isActive, onToggleActive }) => (
     <div className={`parameter-dials ${isActive ? '' : 'inactive'}`}>
-        {!isActive && (
-            <p className="parameter-dials-hint">
-                These shape the voicing engine. Turn on <strong>Auto voice leading</strong> in the
-                progression controls to hear them.
-            </p>
-        )}
+        <label className="voicing-toggle">
+            <input type="checkbox" checked={isActive} onChange={onToggleActive} />
+            <span className="voicing-toggle-label">Auto voice leading</span>
+        </label>
+        <p className="parameter-dials-hint">
+            {isActive
+                ? 'Chords are re-voiced for smooth movement. Your hand-made voicings are kept and restored when this is off.'
+                : 'Off: chords play exactly as entered. Turn this on for the dials below to do anything.'}
+        </p>
         <div className="parameter-dials-row">
             {WIRED_PARAMS.map(name => (
                 <Knob
