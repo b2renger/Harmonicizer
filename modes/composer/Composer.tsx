@@ -1023,14 +1023,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 />
             </CollapsibleSection>
             
-            <CollapsibleSection title="Harmonic Bricks" defaultOpen={false}>
-                <BrickPalette
-                    musicalKey={musicalKey}
-                    musicalMode={musicalMode}
-                    onAddBrick={handleAddBrick}
-                />
-            </CollapsibleSection>
-
             <CollapsibleSection title="Voicing" defaultOpen={false}>
                 <ParameterDials
                     params={liveParams}
@@ -1038,6 +1030,14 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     onReset={handleParamReset}
                     isActive={autoVoiceLeading}
                     onToggleActive={() => setAutoVoiceLeading(prev => !prev)}
+                />
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Harmonic Bricks" defaultOpen={false}>
+                <BrickPalette
+                    musicalKey={musicalKey}
+                    musicalMode={musicalMode}
+                    onAddBrick={handleAddBrick}
                 />
             </CollapsibleSection>
 
