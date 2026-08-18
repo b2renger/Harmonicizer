@@ -8,13 +8,13 @@
  */
 
 export type ParamName =
-    // Harmony generation — inert until the brick grammar lands (design step 3).
+    // Harmony generation.
     | 'brightness'
     | 'chromaticism'
     | 'modulationRate'
     | 'harmonicRhythm'
     | 'cadencePressure'
-    // Voicing — wired.
+    // Voicing.
     | 'voicingOpenness'
     | 'register'
     | 'rootless'
@@ -46,18 +46,30 @@ export const DEFAULT_PARAMS: Params = {
 };
 
 /**
- * The parameters that currently drive something audible.
+ * The parameters that drive something audible, grouped by the engine they shape.
  *
- * The rest of `ParamName` is declared so the contract is stable for MIDI/OSC mapping, but
- * they are not surfaced as dials: a control that visibly moves and changes nothing reads
- * as a bug. They are added here as each engine stage lands.
+ * `density` and `swing` are declared but in neither group: they need the rhythm patterns
+ * (design step 5), and a dial that visibly moves and changes nothing reads as a bug.
  */
-export const WIRED_PARAMS: ParamName[] = [
+
+/** Dials that shape what the generator writes. */
+export const HARMONY_PARAMS: ParamName[] = [
+    'brightness',
+    'chromaticism',
+    'modulationRate',
+    'harmonicRhythm',
+    'cadencePressure',
+];
+
+/** Dials that shape how chords are voiced. */
+export const VOICING_PARAMS: ParamName[] = [
     'voicingOpenness',
     'register',
     'rootless',
     'motionWeight',
 ];
+
+export const WIRED_PARAMS: ParamName[] = [...HARMONY_PARAMS, ...VOICING_PARAMS];
 
 export const PARAM_LABELS: Record<ParamName, string> = {
     brightness: 'Brightness',

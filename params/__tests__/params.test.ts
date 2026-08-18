@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ParamStore, clampParams, DEFAULT_PARAMS, WIRED_PARAMS, PARAM_LABELS, type ParamName } from '../store.js';
+import {
+    ParamStore, clampParams, DEFAULT_PARAMS, WIRED_PARAMS, HARMONY_PARAMS, VOICING_PARAMS,
+    PARAM_LABELS, type ParamName,
+} from '../store.js';
 import { paramsToVoicing } from '../toVoicing.js';
 import { DEFAULT_VOICING_PARAMS } from '../../theory/voicing/types.js';
 
@@ -118,8 +121,23 @@ describe('paramsToVoicing', () => {
 });
 
 describe('parameter surface', () => {
-    it('only surfaces dials that drive something', () => {
-        expect(WIRED_PARAMS).toEqual(['voicingOpenness', 'register', 'rootless', 'motionWeight']);
+    it('surfaces the harmony and voicing groups, and nothing else', () => {
+        expect(HARMONY_PARAMS).toEqual([
+            'brightness', 'chromaticism', 'modulationRate', 'harmonicRhythm', 'cadencePressure',
+        ]);
+        expect(VOICING_PARAMS).toEqual(['voicingOpenness', 'register', 'rootless', 'motionWeight']);
+        expect(WIRED_PARAMS).toEqual([...HARMONY_PARAMS, ...VOICING_PARAMS]);
+    });
+
+    it('keeps the groups disjoint', () => {
+        for (const name of HARMONY_PARAMS) expect(VOICING_PARAMS).not.toContain(name);
+    });
+
+    // These need the rhythm patterns of design step 5; surfacing them now would give the
+    // user a dial that moves and does nothing.
+    it('does not yet surface the rhythm dials', () => {
+        expect(WIRED_PARAMS).not.toContain('density');
+        expect(WIRED_PARAMS).not.toContain('swing');
     });
 
     it('labels every declared parameter, wired or not', () => {

@@ -15,8 +15,8 @@ import ProgressionTabs from '../../components/ProgressionTabs/ProgressionTabs.ts
 import SongStructure from '../../components/SongStructure/SongStructure.tsx';
 import { Player } from '../../audio/player.js';
 import { soundfonts } from '../../audio/soundfonts.js';
-import { analyzeProgression, getSuggestionsForChord, getHarmonicTheoryForChord } from '../../theory/analysis.js';
-import { generateRandomProgression, getDiatonicChords } from '../../theory/harmony.js';
+import { analyzeProgression, getHarmonicTheoryForChord } from '../../theory/analysis.js';
+import { getDiatonicChords } from '../../theory/harmony.js';
 import './Composer.css';
 import { rootNotes, modes, detectChordFromNotes, getChordNotesWithOctaves, getNextInversion, getPreviousInversion, getPermutedVoicing } from '../../theory/chords.js';
 import { voiceStoredProgression } from '../../theory/voicing/adapt.js';
@@ -24,8 +24,9 @@ import { newId } from '../../utils/id.js';
 import ParameterDials from '../../components/ParameterDials/ParameterDials.tsx';
 import BrickPalette from '../../components/BrickPalette/BrickPalette.tsx';
 import { expandBrick } from '../../theory/bricks/expand.js';
+import { generate } from '../../theory/grammar/generate.js';
 import type { Brick } from '../../theory/bricks/types.js';
-import { paramStore, type ParamName } from '../../params/store.js';
+import { paramStore, HARMONY_PARAMS, VOICING_PARAMS, type ParamName } from '../../params/store.js';
 import { paramsToVoicing } from '../../params/toVoicing.js';
 
 const MAX_HISTORY_SIZE = 30;
@@ -202,11 +203,10 @@ const Composer = ({ screenWidth, screenHeight }) => {
             ? selectionContext
             : activeProgression.length > 0 ? activeProgression[activeProgression.length - 1] : null;
         const contextChordName = contextChord && contextChord.notes.length > 0 ? detectChordFromNotes(contextChord.notes) : null;
-        const categorized = getSuggestionsForChord(contextChordName, musicalKey, musicalMode);
         const harmonicTheory = contextChordName
             ? getHarmonicTheoryForChord(contextChordName, musicalKey, musicalMode)
             : null;
-        return { categorized, harmonicTheory };
+        return { harmonicTheory };
     }, [selectionContext, activeProgression, musicalKey, musicalMode]);
 
     // Memoizes the settings object for the currently active synthesizer.
@@ -394,60 +394,43 @@ const Composer = ({ screenWidth, screenHeight }) => {
      * Generates new chords based on context. If the progression is empty, it creates a full random
      * progression. If not, it intelligently suggests and appends 4 new chords.
      */
+    /**
+     * Generates harmony with the brick grammar, shaped by the live harmony dials.
+     *
+     * An empty part is treated as a blank slate and gets a fresh key, mode and tempo too;
+     * otherwise it extends what is already there, in the key already set.
+     */
     const handleFeelLucky = useCallback(() => {
         const currentProgression = progressions[activeProgressionId] || [];
-        if (currentProgression.length === 0) {
-            // Generate a full new progression from scratch.
-            const newTempo = Math.floor(Math.random() * (160 - 80 + 1)) + 80;
-            const newKey = rootNotes[Math.floor(Math.random() * rootNotes.length)];
-            const newMode = modes[Math.floor(Math.random() * modes.length)];
-            const newChordNames = generateRandomProgression(newKey, newMode);
-    
-            if (newChordNames.length > 0) {
-                const newChords = newChordNames.map(name => ({
-                    id: newId(),
-                    notes: getChordNotesWithOctaves(name, 4),
-                    duration: 4,
-                }));
-                setTempo(newTempo);
-                setMusicalKey(newKey);
-                setMusicalMode(newMode);
-                setProgressionsWithHistory(currents => ({ ...currents, [activeProgressionId]: newChords }));
-            }
-        } else {
-            // Append 4 new chords based on the last chord in the progression.
-            const generatedChords = [];
-            let currentContextChord = currentProgression[currentProgression.length - 1];
+        const isEmpty = currentProgression.length === 0;
 
-            for (let i = 0; i < 4; i++) {
-                if (!currentContextChord || currentContextChord.notes.length === 0) break;
-                const currentContextChordName = detectChordFromNotes(currentContextChord.notes);
-                if (!currentContextChordName) break;
-                // Get harmonically coherent suggestions.
-                const suggestions = getSuggestionsForChord(currentContextChordName, musicalKey, musicalMode);
-                let candidateChords = suggestions.coherent;
-                // Fallback to any diatonic chord if no specific suggestions are found.
-                if (candidateChords.length === 0) {
-                    const diatonicChords = getDiatonicChords(musicalKey, musicalMode).map(c => c.name);
-                    candidateChords = diatonicChords.filter(c => c !== currentContextChordName);
-                }
-                if (candidateChords.length === 0) break;
-                
-                // Pick a random chord from the candidates and create the new chord object.
-                const nextChordName = candidateChords[Math.floor(Math.random() * candidateChords.length)];
-                const newChord = { id: newId(), notes: getChordNotesWithOctaves(nextChordName, 4), duration: 4 };
-                generatedChords.push(newChord);
-                currentContextChord = newChord; // The new chord becomes the context for the next iteration.
-            }
+        const key = isEmpty ? rootNotes[Math.floor(Math.random() * rootNotes.length)] : musicalKey;
+        const mode = isEmpty ? modes[Math.floor(Math.random() * modes.length)] : musicalMode;
+        const beats = isEmpty ? 32 : 16;
 
-            if (generatedChords.length > 0) {
-                setProgressionsWithHistory(currents => ({
-                    ...currents,
-                    [activeProgressionId]: [...currents[activeProgressionId], ...generatedChords]
-                }));
-            }
+        const { chords } = generate({ beats, key, mode }, liveParams);
+        if (chords.length === 0) return;
+
+        // Durations are rounded because the stored chord format counts whole beats. Step
+        // 3b-ii stores the exact beats from the generator instead.
+        const newChords = chords.map(({ symbol, durationBeats }) => ({
+            id: newId(),
+            notes: getChordNotesWithOctaves(symbol, 4),
+            duration: Math.max(1, Math.round(durationBeats)),
+        }));
+
+        if (isEmpty) {
+            setTempo(Math.floor(Math.random() * (160 - 80 + 1)) + 80);
+            setMusicalKey(key);
+            setMusicalMode(mode);
+            setProgressionsWithHistory(currents => ({ ...currents, [activeProgressionId]: newChords }));
+            return;
         }
-    }, [progressions, activeProgressionId, musicalKey, musicalMode, setProgressionsWithHistory]);
+        setProgressionsWithHistory(currents => ({
+            ...currents,
+            [activeProgressionId]: [...(currents[activeProgressionId] || []), ...newChords],
+        }));
+    }, [progressions, activeProgressionId, musicalKey, musicalMode, liveParams, setProgressionsWithHistory]);
 
     const handleRemoveChord = useCallback((idToRemove) => {
         setProgressionsWithHistory(currents => ({
@@ -1026,14 +1009,28 @@ const Composer = ({ screenWidth, screenHeight }) => {
             <CollapsibleSection title="Voicing" defaultOpen={false}>
                 <ParameterDials
                     params={liveParams}
+                    names={VOICING_PARAMS}
                     onChange={handleParamChange}
                     onReset={handleParamReset}
-                    isActive={autoVoiceLeading}
-                    onToggleActive={() => setAutoVoiceLeading(prev => !prev)}
+                    toggle={{
+                        label: 'Auto voice leading',
+                        checked: autoVoiceLeading,
+                        onChange: () => setAutoVoiceLeading(prev => !prev),
+                    }}
+                    hint={autoVoiceLeading
+                        ? 'Chords are re-voiced for smooth movement. Your hand-made voicings are kept, and restored when this is off.'
+                        : 'Off: chords play exactly as entered. Turn this on for the dials below to do anything.'}
                 />
             </CollapsibleSection>
 
             <CollapsibleSection title="Harmonic Bricks" defaultOpen={false}>
+                <ParameterDials
+                    params={liveParams}
+                    names={HARMONY_PARAMS}
+                    onChange={handleParamChange}
+                    onReset={handleParamReset}
+                    hint="These shape what the generator writes. Press the dice in the progression controls to hear them."
+                />
                 <BrickPalette
                     musicalKey={musicalKey}
                     musicalMode={musicalMode}

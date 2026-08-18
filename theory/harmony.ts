@@ -227,38 +227,6 @@ export const modeFamily = (mode: string): 'major' | 'minor' =>
     ['minor', 'aeolian', 'dorian', 'phrygian', 'locrian'].includes(mode) ? 'minor' : 'major';
 
 /**
- * Common harmonic patterns as explicit Roman numerals, split by mode family.
- *
- * Numerals now carry their own quality, so these must say what they mean: 'V7' for a
- * dominant seventh, 'viiø7' for the half-diminished leading-tone chord in major, 'vii°7'
- * for the fully diminished one in minor.
- *
- * Interim scaffolding: replaced by the brick grammar in step 3 of the accompaniment spec.
- */
-export const COMMON_PATTERNS = {
-    major: {
-        'ii-V-I Turnaround':        ['ii7', 'V7', 'Imaj7'],
-        'I-vi-IV-V "Doo-Wop"':      ['Imaj7', 'vi7', 'IVmaj7', 'V7'],
-        'I-V-vi-IV "Axis"':         ['Imaj7', 'V7', 'vi7', 'IVmaj7'],
-        'vi-IV-I-V':                ['vi7', 'IVmaj7', 'Imaj7', 'V7'],
-        'I-IV-vi-V':                ['Imaj7', 'IVmaj7', 'vi7', 'V7'],
-        'iii-vi-ii-V':              ['iii7', 'vi7', 'ii7', 'V7'],
-        'Authentic Cadence (V-I)':  ['V7', 'Imaj7'],
-        'Plagal Cadence (IV-I)':    ['IVmaj7', 'Imaj7'],
-        'Half Cadence (to V)':      ['ii7', 'V7'],
-        'Deceptive Cadence (V-vi)': ['V7', 'vi7'],
-    },
-    minor: {
-        'i-iv-V-i':                 ['i7', 'iv7', 'V7', 'i7'],
-        'i-VI-III-VII':             ['i7', 'VImaj7', 'IIImaj7', 'bVII7'],
-        'Andalusian i-VII-VI-V':    ['i7', 'bVII7', 'VImaj7', 'V7'],
-        'i-iv-bVII-III':            ['i7', 'iv7', 'bVII7', 'IIImaj7'],
-        'iiø-V-i Turnaround':       ['iiø7', 'V7', 'i7'],
-        'Minor Authentic (V-i)':    ['V7', 'i7'],
-    },
-};
-
-/**
  * Gets a chord symbol for a given Roman numeral in a key.
  * @param {string} roman - The Roman numeral (e.g., "IV", "vi").
  * @param {string} key - The tonic of the key.
@@ -324,38 +292,6 @@ const chordTypeForNumeral = (p: ParsedNumeral): string | null => {
     }
     return suffix === '' ? 'm' : `m${suffix}`;
 }
-
-/**
- * Generates a random 4-chord progression based on common patterns.
- * @param {string} key - The tonic of the key.
- * @param {string} mode - The mode of the key.
- * @returns {string[]} An array of 4 chord names.
- */
-export const generateRandomProgression = (key, mode) => {
-    const family = modeFamily(mode);
-    const fourChordPatterns = Object.values(COMMON_PATTERNS[family]).filter(p => p.length === 4);
-
-    let patternToUse;
-
-    if (fourChordPatterns.length > 0) {
-        patternToUse = fourChordPatterns[Math.floor(Math.random() * fourChordPatterns.length)];
-    } else {
-        // Fallback if no 4-chord patterns are defined.
-        patternToUse = family === 'minor' ? ['i7', 'VImaj7', 'IIImaj7', 'bVII7'] : ['Imaj7', 'V7', 'vi7', 'IVmaj7'];
-    }
-
-    const chords = patternToUse
-        .map(numeral => getChordFromRomanNumeral(numeral, key, mode))
-        .filter((c): c is string => c !== null);
-
-    // If any chord failed to convert, use a failsafe progression.
-    if (chords.length !== 4) {
-        const fallbackNumerals = family === 'minor' ? ['i7', 'iv7', 'V7', 'i7'] : ['Imaj7', 'IVmaj7', 'V7', 'Imaj7'];
-         return fallbackNumerals.map(n => getChordFromRomanNumeral(n, key, mode)).filter((c): c is string => c !== null);
-    }
-
-    return chords;
-};
 
 // Re-export for use in other modules.
 export { getChordNotesWithOctavesUtil as getChordNotesWithOctaves };

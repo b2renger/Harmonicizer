@@ -345,6 +345,48 @@ export const BRICK_DICTIONARY: Brick[] = [
         diatonic: true,
         description: 'i to bVII to bVI to V7. The descending flamenco tetrachord.',
     },
+    {
+        name: 'Minor-Opening-Vamp',
+        type: 'Opening',
+        mode: 'Minor',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Cm7', dur: 1 },
+            { kind: 'chord', symbol: 'Fm7', dur: 1 },
+        ],
+        defaultBeats: 8,
+        weight: 4.0,
+        diatonic: true,
+        description: 'i to iv. An unhurried way into a minor key.',
+    },
+    {
+        name: 'Minor-On-Off',
+        type: 'OnOff',
+        mode: 'Minor',
+        key: 'C',
+        blocks: [
+            { kind: 'chord', symbol: 'Cm7', dur: 1 },
+            { kind: 'chord', symbol: 'Dm7b5', dur: 1 },
+        ],
+        defaultBeats: 8,
+        weight: 1.0,
+        diatonic: true,
+        description: 'i against iio. Rocks without settling.',
+    },
+    {
+        name: 'Minor-Ending',
+        type: 'Ending',
+        mode: 'Minor',
+        key: 'C',
+        blocks: [
+            { kind: 'brick', name: 'Minor-Approach', key: 'C', dur: 2 },
+            { kind: 'chord', symbol: 'Cm', dur: 2 },
+        ],
+        defaultBeats: 16,
+        weight: 3.3,
+        diatonic: true,
+        description: 'iio to V7 to i. Comes to rest on the plain minor tonic.',
+    },
 ];
 
 /** Look a brick up by name. */

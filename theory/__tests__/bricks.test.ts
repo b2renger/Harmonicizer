@@ -131,3 +131,17 @@ describe('the dictionary itself', () => {
         }
     });
 });
+
+describe('mode coverage', () => {
+    // The grammar chooses a brick *type* and then a brick of that type. If a type exists in
+    // only one mode, generating in the other mode is forced to borrow every time.
+    it('offers every type in both modes', () => {
+        const types = new Set(BRICK_DICTIONARY.map(b => b.type));
+        for (const type of types) {
+            for (const mode of ['Major', 'Minor'] as const) {
+                const found = BRICK_DICTIONARY.some(b => b.type === type && b.mode === mode);
+                expect(found, `${type} in ${mode}`).toBe(true);
+            }
+        }
+    });
+});
