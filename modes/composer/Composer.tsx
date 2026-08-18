@@ -973,6 +973,21 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 />
             </CollapsibleSection>
 
+            <CollapsibleSection title="Generate Progression" defaultOpen={true}>
+                <GeneratorPanel
+                    params={liveParams}
+                    onParamChange={handleParamChange}
+                    onParamReset={handleParamReset}
+                    bars={generateBars}
+                    onBarsChange={setGenerateBars}
+                    mode={generateMode}
+                    onModeChange={setGenerateMode}
+                    onGenerate={handleGenerate}
+                    musicalKey={musicalKey}
+                    musicalMode={musicalMode}
+                />
+            </CollapsibleSection>
+
             <CollapsibleSection title={`Chord Progression (Part ${activeProgressionId})`} defaultOpen={true} key={activeProgressionId}>
                 <div className="progression-controls">
                     <button className={`control-button ${isNoteVisualizerVisible ? 'active' : ''}`} onClick={() => setIsNoteVisualizerVisible(prev => !prev)} title="Toggle Note Visualizer" aria-pressed={isNoteVisualizerVisible}>
@@ -1018,21 +1033,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     hint={autoVoiceLeading
                         ? 'Chords are re-voiced for smooth movement. Your hand-made voicings are kept, and restored when this is off.'
                         : 'Off: chords play exactly as entered. Turn this on for the dials below to do anything.'}
-                />
-            </CollapsibleSection>
-
-            <CollapsibleSection title="Generate Progression" defaultOpen={true}>
-                <GeneratorPanel
-                    params={liveParams}
-                    onParamChange={handleParamChange}
-                    onParamReset={handleParamReset}
-                    bars={generateBars}
-                    onBarsChange={setGenerateBars}
-                    mode={generateMode}
-                    onModeChange={setGenerateMode}
-                    onGenerate={handleGenerate}
-                    musicalKey={musicalKey}
-                    musicalMode={musicalMode}
                 />
             </CollapsibleSection>
 
