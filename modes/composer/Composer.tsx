@@ -20,6 +20,7 @@ import { generateRandomProgression, getDiatonicChords } from '../../theory/harmo
 import './Composer.css';
 import { rootNotes, modes, detectChordFromNotes, getChordNotesWithOctaves, getNextInversion, getPreviousInversion, getPermutedVoicing } from '../../theory/chords.js';
 import { voiceStoredProgression } from '../../theory/voicing/adapt.js';
+import { newId } from '../../utils/id.js';
 import ParameterDials from '../../components/ParameterDials/ParameterDials.tsx';
 import BrickPalette from '../../components/BrickPalette/BrickPalette.tsx';
 import { expandBrick } from '../../theory/bricks/expand.js';
@@ -92,15 +93,15 @@ const Composer = ({ screenWidth, screenHeight }) => {
     // Core progression data and history for undo functionality
     const [progressions, setProgressions] = useState({
         'A': [
-            { id: crypto.randomUUID(), notes: ['C4', 'E4', 'G4', 'B4'], duration: 4 }, // Cmaj7
-            { id: crypto.randomUUID(), notes: ['A3', 'C4', 'E4', 'G4'], duration: 4 }, // Am7
-            { id: crypto.randomUUID(), notes: ['D4', 'F4', 'A4', 'C5'], duration: 4 }, // Dm7
-            { id: crypto.randomUUID(), notes: ['G4', 'B4', 'D5', 'F5'], duration: 4 }, // G7
+            { id: newId(), notes: ['C4', 'E4', 'G4', 'B4'], duration: 4 }, // Cmaj7
+            { id: newId(), notes: ['A3', 'C4', 'E4', 'G4'], duration: 4 }, // Am7
+            { id: newId(), notes: ['D4', 'F4', 'A4', 'C5'], duration: 4 }, // Dm7
+            { id: newId(), notes: ['G4', 'B4', 'D5', 'F5'], duration: 4 }, // G7
         ]
     });
     const [activeProgressionId, setActiveProgressionId] = useState('A');
-    // FIX: Explicitly type songStructure state to avoid type inference issues with crypto.randomUUID()
-    const [songStructure, setSongStructure] = useState<{ id: string; progressionId: string; }[]>([{ id: crypto.randomUUID(), progressionId: 'A' }]);
+    // FIX: Explicitly type songStructure state to avoid type inference issues with newId()
+    const [songStructure, setSongStructure] = useState<{ id: string; progressionId: string; }[]>([{ id: newId(), progressionId: 'A' }]);
     const [progressionsHistory, setProgressionsHistory] = useState([]);
     
     const [selectedChordId, setSelectedChordId] = useState(null);
@@ -404,7 +405,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
     
             if (newChordNames.length > 0) {
                 const newChords = newChordNames.map(name => ({
-                    id: crypto.randomUUID(),
+                    id: newId(),
                     notes: getChordNotesWithOctaves(name, 4),
                     duration: 4,
                 }));
@@ -434,7 +435,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 
                 // Pick a random chord from the candidates and create the new chord object.
                 const nextChordName = candidateChords[Math.floor(Math.random() * candidateChords.length)];
-                const newChord = { id: crypto.randomUUID(), notes: getChordNotesWithOctaves(nextChordName, 4), duration: 4 };
+                const newChord = { id: newId(), notes: getChordNotesWithOctaves(nextChordName, 4), duration: 4 };
                 generatedChords.push(newChord);
                 currentContextChord = newChord; // The new chord becomes the context for the next iteration.
             }
@@ -460,7 +461,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
     }, [currentlyPlayingChordId, activeProgressionId, setProgressionsWithHistory, handleStop]);
 
     const handleEditChord = useCallback((chord) => {
-        setEditingChord(chord || { id: crypto.randomUUID(), notes: [] });
+        setEditingChord(chord || { id: newId(), notes: [] });
         setIsModalOpen(true);
     }, []);
 
@@ -501,7 +502,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
 
     const handleAddChords = useCallback((chordNames) => {
         const newChords = chordNames.map(name => ({
-            id: crypto.randomUUID(),
+            id: newId(),
             notes: getChordNotesWithOctaves(name, 4),
             duration: 4,
         }));
@@ -530,7 +531,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
         if (expanded.length === 0) return;
 
         const newChords = expanded.map(({ symbol, durationBeats }) => ({
-            id: crypto.randomUUID(),
+            id: newId(),
             notes: getChordNotesWithOctaves(symbol, 4),
             duration: Math.max(1, Math.round(durationBeats)),
         }));
@@ -640,7 +641,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
         
         const newChords = currentProgression.map(chord => ({
             ...chord,
-            id: crypto.randomUUID() 
+            id: newId() 
         }));
 
         setProgressionsWithHistory(currents => ({
@@ -812,7 +813,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     for (const key in importedData.progressions) {
                         progressionsWithNewIds[key] = importedData.progressions[key].map(chord => ({
                             ...chord,
-                            id: crypto.randomUUID()
+                            id: newId()
                         }));
                     }
                     setProgressionsWithHistory(progressionsWithNewIds);
@@ -821,7 +822,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     // Legacy v1 format with single progression
                     const progressionWithNewIds = importedData.progression.map(chord => ({
                         ...chord,
-                        id: crypto.randomUUID()
+                        id: newId()
                     }));
                     setProgressionsWithHistory({ 'A': progressionWithNewIds });
                     setActiveProgressionId('A');
@@ -830,7 +831,7 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 if (importedData.songStructure && Array.isArray(importedData.songStructure)) {
                     const structureWithNewIds = importedData.songStructure.map(part => ({
                         ...part,
-                        id: crypto.randomUUID()
+                        id: newId()
                     }));
                     setSongStructure(structureWithNewIds);
                 }

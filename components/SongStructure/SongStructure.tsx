@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import './SongStructure.css';
+import { newId } from '../../utils/id.js';
 
 interface SongStructureProps {
     structure: Array<{ id: string, progressionId: string }>;
@@ -41,7 +42,7 @@ const SongStructure: React.FC<SongStructureProps> = ({ structure, onStructureCha
     const [dragOverPartId, setDragOverPartId] = useState<string | null>(null);
 
     const handleAddPart = (progressionId: string) => {
-        const newPart = { id: crypto.randomUUID(), progressionId };
+        const newPart = { id: newId(), progressionId };
         onStructureChange([...structure, newPart]);
     };
     
