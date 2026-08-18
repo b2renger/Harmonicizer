@@ -1048,14 +1048,6 @@ const Composer = ({ screenWidth, screenHeight }) => {
                 />
             </CollapsibleSection>
 
-            <CollapsibleSection title="Arpeggiator" defaultOpen={false}>
-                <Arpeggiator
-                    settings={arpeggio}
-                    onChange={patchArpeggio}
-                    previewNotes={selectionContext?.notes ?? activeProgression[0]?.notes ?? []}
-                />
-            </CollapsibleSection>
-
             <CollapsibleSection title="Harmonic Bricks" defaultOpen={false}>
                 <BrickPalette
                     musicalKey={musicalKey}
@@ -1071,6 +1063,14 @@ const Composer = ({ screenWidth, screenHeight }) => {
                     suggestions={exhaustiveSuggestions}
                     suggestionContextChord={suggestionContextChord}
                     screenWidth={screenWidth}
+                />
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Arpeggiator" defaultOpen={false}>
+                <Arpeggiator
+                    settings={arpeggio}
+                    onChange={patchArpeggio}
+                    previewNotes={selectionContext?.notes ?? activeProgression[0]?.notes ?? []}
                 />
             </CollapsibleSection>
 
